@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - VinylVault{% endblock %}
+
+{% block head %}
+<style>
+.stats-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.stats-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.stats-title {
+    font-size: 32px;
+    font-weight: bold;
+    color: #ff6b35;
+    margin-bottom: 8px;
+}
+
+.stats-subtitle {
+    color: #999;
+    font-size: 16px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+    margin-bottom: 40px;
+}
+
+.stat-card {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    border-color: #ff6b35;
+    box-shadow: 0 4px 16px rgba(255, 107, 53, 0.1);
+}
+
+.stat-number {
+    font-size: 36px;
+    font-weight: bold;
+    color: #ff6b35;
+    margin-bottom: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+    color: #ccc;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.chart-section {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+}
+
+.chart-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ff6b35;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chart-list {
+    display: grid;
+    gap: 12px;
+}
+
+.chart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #222;
+    border-radius: 8px;
+    border: 1px solid #333;
+    transition: all 0.2s ease;
+}
+
+.chart-item:hover {
+    background: #333;
+    border-color: #444;
+}
+
+.chart-label {
+    font-weight: 500;
+    color: #fff;
+    flex: 1;
+    margin-right: 16px;
+}
+
+.chart-bar {
+    flex: 2;
+    height: 6px;
+    background: #333;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-right: 16px;
+    position: relative;
+}
+
+.chart-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b35, #e55a2b);
+    border-radius: 3px;
+    transition: width 0.8s ease;
+}
+
+.chart-count {
+    color: #ff6b35;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    min-width: 30px;
+    text-align: right;
+}
+
+.decade-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 16px;
+}
+
+.decade-item {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.decade-item:hover {
+    background: #333;
+    border-color: #ff6b35;
+}
+
+.decade-label {
+    font-size: 14px;
+    color: #ccc;
+    margin-bottom: 8px;
+}
+
+.decade-count {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ff6b35;
+    font-variant-numeric: tabular-nums;
+}
+
+.empty-stats {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.empty-stats h2 {
+    font-size: 24px;
+    margin-bottom: 16px;
+    color: #666;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+    
+    .chart-section {
+        padding: 16px;
+    }
+    
+    .chart-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .chart-bar {
+        margin-right: 0;
+        order: 3;
+    }
+    
+    .chart-count {
+        text-align: left;
+        min-width: auto;
+    }
+    
+    .decade-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-title {
+        font-size: 24px;
+    }
+    
+    .stat-number {
+        font-size: 28px;
+    }
+    
+    .decade-count {
+        font-size: 20px;
+    }
+}
+
+/* Animation on load */
+@keyframes countUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.stat-card {
+    animation: countUp 0.6s ease forwards;
+}
+
+.stat-card:nth-child(2) { animation-delay: 0.1s; }
+.stat-card:nth-child(3) { animation-delay: 0.2s; }
+.stat-card:nth-child(4) { animation-delay: 0.3s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <div class="stats-header">
+        <h1 class="stats-title">Collection Statistics</h1>
+        <p class="stats-subtitle">Your vinyl collection by the numbers</p>
+    </div>
+    
+    {% if stats.total_albums > 0 %}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.total_albums }}</div>
+            <div class="stat-label">Total Albums</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.total_artists }}</div>
+            <div class="stat-label">Unique Artists</div>
+        </div>
+        
+        {% if stats.average_year > 0 %}
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.average_year }}</div>
+            <div class="stat-label">Average Year</div>
+        </div>
+        {% endif %}
+        
+        <div class="stat-card">
+            <div class="stat-number">{{ (stats.total_albums / stats.total_artists)|round(1) if stats.total_artists > 0 else 0 }}</div>
+            <div class="stat-label">Albums per Artist</div>
+        </div>
+    </div>
+    
+    {% if stats.top_artists %}
+    <div class="chart-section">
+        <h2 class="chart-title">
+            🎤 Top Artists
+        </h2>
+        <div class="chart-list">
+            {% set max_count = stats.top_artists[0].count if stats.top_artists else 1 %}
+            {% for artist in stats.top_artists[:10] %}
+            <div class="chart-item">
+                <div class="chart-label">{{ artist.artist }}</div>
+                <div class="chart-bar">
+                    <div class="chart-bar-fill" style="width: {{ (artist.count / max_count * 100)|round(1) }}%"></div>
+                </div>
+                <div class="chart-count">{{ artist.count }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if stats.decades %}
+    <div class="chart-section">
+        <h2 class="chart-title">
+            📅 Albums by Decade
+        </h2>
+        <div class="decade-grid">
+            {% for decade in stats.decades %}
+            <div class="decade-item">
+                <div class="decade-label">{{ decade.decade }}</div>
+                <div class="decade-count">{{ decade.count }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-stats">
+        <h2>No statistics available</h2>
+        <p>Sync your collection to see detailed statistics about your vinyl records.</p>
+        <a href="{{ url_for('sync') }}" class="btn" style="margin-top: 20px;">Sync Collection</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Animate chart bars on load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        const bars = document.querySelectorAll('.chart-bar-fill');
+        bars.forEach((bar, index) => {
+            setTimeout(() => {
+                bar.style.transition = 'width 1s ease';
+                bar.style.width = bar.style.width; // Trigger animation
+            }, index * 100);
+        });
+    }, 500);
+});
+
+// Animate count-up effect for stat numbers
+function animateNumber(element, target, duration = 1000) {
+    const start = 0;
+    const startTime = performance.now();
+    
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        const current = Math.floor(start + (target - start) * progress);
+        element.textContent = current.toLocaleString();
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            element.textContent = target.toLocaleString();
+        }
+    }
+    
+    requestAnimationFrame(update);
+}
+
+// Animate numbers on load
+document.addEventListener('DOMContentLoaded', function() {
+    const statNumbers = document.querySelectorAll('.stat-number');
+    statNumbers.forEach((element, index) => {
+        const target = parseInt(element.textContent.replace(/,/g, ''));
+        if (!isNaN(target)) {
+            element.textContent = '0';
+            setTimeout(() => {
+                animateNumber(element, target, 1500);
+            }, index * 200);
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Sync Collection - VinylVault{% endblock %}
+
+{% block head %}
+<style>
+.sync-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.sync-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.sync-title {
+    font-size: 32px;
+    font-weight: bold;
+    color: #ff6b35;
+    margin-bottom: 8px;
+}
+
+.sync-subtitle {
+    color: #999;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.sync-card {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 32px;
+}
+
+.sync-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 16px;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.sync-status.idle {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ccc;
+}
+
+.sync-status.running {
+    background: rgba(255, 107, 53, 0.1);
+    color: #ff6b35;
+    border: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.sync-status.success {
+    background: rgba(0, 255, 0, 0.1);
+    color: #90ee90;
+    border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.sync-status.error {
+    background: rgba(255, 0, 0, 0.1);
+    color: #ffb3b3;
+    border: 1px solid rgba(255, 0, 0, 0.3);
+}
+
+.sync-icon {
+    font-size: 20px;
+}
+
+.sync-icon.spinning {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.sync-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.sync-info {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.sync-info h3 {
+    color: #ff6b35;
+    margin-bottom: 16px;
+    font-size: 18px;
+}
+
+.sync-info ul {
+    list-style: none;
+    padding: 0;
+    color: #ccc;
+    line-height: 1.8;
+}
+
+.sync-info li {
+    position: relative;
+    padding-left: 20px;
+    margin-bottom: 8px;
+}
+
+.sync-info li::before {
+    content: '•';
+    color: #ff6b35;
+    position: absolute;
+    left: 0;
+    font-weight: bold;
+}
+
+.progress-container {
+    margin: 24px 0;
+    display: none;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b35, #e55a2b);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
+.last-sync {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+}
+
+.warning-box {
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    color: #ffc107;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.warning-box strong {
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sync-card {
+        padding: 20px;
+    }
+    
+    .sync-title {
+        font-size: 24px;
+    }
+    
+    .sync-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .sync-actions .btn {
+        width: 100%;
+        max-width: 300px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sync-container">
+    <div class="sync-header">
+        <h1 class="sync-title">Sync Collection</h1>
+        <p class="sync-subtitle">
+            Synchronize your Discogs collection with VinylVault to keep your library up to date.
+        </p>
+    </div>
+    
+    <div class="sync-card">
+        {% if sync_initiated %}
+        <div class="sync-status running">
+            <span class="sync-icon spinning">⟳</span>
+            <span>Sync in progress...</span>
+        </div>
+        
+        <div class="progress-container" style="display: block;">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 25%;"></div>
+            </div>
+            <div class="progress-text">Fetching collection data from Discogs...</div>
+        </div>
+        {% else %}
+        <div class="sync-status idle">
+            <span class="sync-icon">⟳</span>
+            <span>Ready to sync</span>
+        </div>
+        {% endif %}
+        
+        <div class="sync-actions">
+            {% if not sync_initiated %}
+            <form method="POST" style="display: contents;">
+                <button type="submit" class="btn" onclick="return confirmSync()">
+                    Start Full Sync
+                </button>
+            </form>
+            <button class="btn btn-secondary" onclick="quickSync()" disabled>
+                Quick Sync (Coming Soon)
+            </button>
+            {% else %}
+            <button class="btn btn-secondary" disabled>
+                Sync Running...
+            </button>
+            {% endif %}
+        </div>
+        
+        {% if not sync_initiated %}
+        <div class="warning-box">
+            <strong>Important:</strong>
+            Syncing will download your entire Discogs collection. This process may take several minutes depending on collection size and can consume significant bandwidth. Ensure you have a stable internet connection.
+        </div>
+        {% endif %}
+        
+        <div class="sync-info">
+            <h3>What happens during sync?</h3>
+            <ul>
+                <li>Fetches your complete Discogs collection</li>
+                <li>Downloads album metadata and artwork</li>
+                <li>Updates existing albums with new information</li>
+                <li>Adds newly purchased albums to your collection</li>
+                <li>Optimizes images for fast mobile loading</li>
+                <li>Updates search indexes for better performance</li>
+            </ul>
+        </div>
+        
+        <div class="last-sync">
+            Last sync: Never
+        </div>
+    </div>
+    
+    <!-- Sync logs section (placeholder) -->
+    <div class="sync-card">
+        <h3 style="color: #ff6b35; margin-bottom: 16px;">Recent Sync Activity</h3>
+        <div style="color: #666; text-align: center; padding: 20px;">
+            No sync history available
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmSync() {
+    return confirm(
+        'Are you sure you want to start a full sync? This will download your entire Discogs collection and may take several minutes.'
+    );
+}
+
+function quickSync() {
+    alert('Quick sync feature coming soon! This will only sync recent changes.');
+}
+
+// Simulate progress if sync is running
+{% if sync_initiated %}
+let progress = 25;
+const progressFill = document.querySelector('.progress-fill');
+const progressText = document.querySelector('.progress-text');
+
+const steps = [
+    'Fetching collection data from Discogs...',
+    'Processing album metadata...',
+    'Downloading cover artwork...',
+    'Optimizing images...',
+    'Updating database...',
+    'Finalizing sync...'
+];
+
+let currentStep = 0;
+
+function updateProgress() {
+    if (progress < 100) {
+        progress += Math.random() * 15;
+        if (progress > 100) progress = 100;
+        
+        progressFill.style.width = progress + '%';
+        
+        // Update step text
+        if (progress > 20 && currentStep < 1) {
+            currentStep = 1;
+            progressText.textContent = steps[currentStep];
+        } else if (progress > 40 && currentStep < 2) {
+            currentStep = 2;
+            progressText.textContent = steps[currentStep];
+        } else if (progress > 60 && currentStep < 3) {
+            currentStep = 3;
+            progressText.textContent = steps[currentStep];
+        } else if (progress > 80 && currentStep < 4) {
+            currentStep = 4;
+            progressText.textContent = steps[currentStep];
+        } else if (progress > 95 && currentStep < 5) {
+            currentStep = 5;
+            progressText.textContent = steps[currentStep];
+        }
+        
+        if (progress < 100) {
+            setTimeout(updateProgress, 1000 + Math.random() * 2000);
+        } else {
+            // Sync complete
+            const statusEl = document.querySelector('.sync-status');
+            statusEl.className = 'sync-status success';
+            statusEl.innerHTML = '<span class="sync-icon">✓</span><span>Sync completed successfully!</span>';
+            progressText.textContent = 'Sync completed - your collection is up to date!';
+            
+            setTimeout(() => {
+                window.location.href = '{{ url_for("index") }}';
+            }, 2000);
+        }
+    }
+}
+
+// Start progress simulation
+setTimeout(updateProgress, 1000);
+{% endif %}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT') return;
+    
+    if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        const syncBtn = document.querySelector('button[type="submit"]');
+        if (syncBtn && !syncBtn.disabled) {
+            if (confirmSync()) {
+                syncBtn.click();
+            }
+        }
+    }
+});
+
+// Auto-refresh if sync is running (in a real implementation)
+{% if sync_initiated %}
+// In a real implementation, you would poll the server for sync status
+// setTimeout(() => {
+//     window.location.reload();
+// }, 30000); // Refresh every 30 seconds
+{% endif %}
+</script>
+{% endblock %}

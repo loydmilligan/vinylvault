@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+
+{% block title %}Random Algorithm Analytics - VinylVault{% endblock %}
+
+{% block extra_head %}
+<style>
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin: 20px 0;
+    }
+    
+    .metric-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+    }
+    
+    .metric-card h3 {
+        margin: 0 0 15px 0;
+        color: #333;
+        font-size: 1.1em;
+        border-bottom: 2px solid #6366f1;
+        padding-bottom: 8px;
+    }
+    
+    .metric-value {
+        font-size: 2em;
+        font-weight: bold;
+        color: #6366f1;
+        margin-bottom: 5px;
+    }
+    
+    .metric-label {
+        color: #666;
+        font-size: 0.9em;
+    }
+    
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 10px 0;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .metric-row:last-child {
+        border-bottom: none;
+    }
+    
+    .progress-bar {
+        background: #f0f0f0;
+        border-radius: 10px;
+        height: 8px;
+        overflow: hidden;
+        margin: 5px 0;
+    }
+    
+    .progress-fill {
+        background: linear-gradient(45deg, #6366f1, #8b5cf6);
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+    
+    .refresh-btn {
+        background: #6366f1;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9em;
+        margin: 10px 5px;
+    }
+    
+    .refresh-btn:hover {
+        background: #5855eb;
+    }
+    
+    .refresh-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    
+    .status-good { background: #10b981; }
+    .status-warning { background: #f59e0b; }
+    .status-error { background: #ef4444; }
+    
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+    
+    .error {
+        background: #fee;
+        border: 1px solid #fcc;
+        color: #c66;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Random Algorithm Analytics</h1>
+    <p>Performance metrics and insights for the intelligent random selection algorithm.</p>
+    
+    <div class="action-bar" style="margin: 20px 0;">
+        <button id="refreshBtn" class="refresh-btn" onclick="loadAnalytics()">
+            🔄 Refresh Data
+        </button>
+        <button id="refreshCacheBtn" class="refresh-btn" onclick="refreshCache()">
+            ⚡ Refresh Cache
+        </button>
+    </div>
+    
+    <div id="loading" class="loading">
+        Loading analytics data...
+    </div>
+    
+    <div id="error" class="error" style="display: none;"></div>
+    
+    <div id="analytics" style="display: none;">
+        <div class="analytics-grid">
+            <!-- Performance Metrics -->
+            <div class="metric-card">
+                <h3>🎯 Performance Metrics</h3>
+                <div class="metric-row">
+                    <span>Total Selections</span>
+                    <span id="totalSelections" class="metric-value">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>Avg Response Time</span>
+                    <span id="avgResponseTime" class="metric-value">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>Cache Hit Rate</span>
+                    <div>
+                        <div id="cacheHitRate" class="metric-value">-</div>
+                        <div class="progress-bar">
+                            <div id="cacheHitBar" class="progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- User Satisfaction -->
+            <div class="metric-card">
+                <h3>😊 User Satisfaction</h3>
+                <div class="metric-row">
+                    <span>Satisfaction Score</span>
+                    <div>
+                        <div id="satisfactionScore" class="metric-value">-</div>
+                        <div class="progress-bar">
+                            <div id="satisfactionBar" class="progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-row">
+                    <span>Positive Feedback</span>
+                    <span id="positiveFeedback" class="metric-value">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>Negative Feedback</span>
+                    <span id="negativeFeedback" class="metric-value">-</span>
+                </div>
+            </div>
+            
+            <!-- Genre Diversity -->
+            <div class="metric-card">
+                <h3>🎵 Genre Diversity</h3>
+                <div class="metric-row">
+                    <span>Diversity Score</span>
+                    <div>
+                        <div id="diversityScore" class="metric-value">-</div>
+                        <div class="progress-bar">
+                            <div id="diversityBar" class="progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-row">
+                    <span>Unique Genres Selected</span>
+                    <span id="uniqueGenres" class="metric-value">-</span>
+                </div>
+            </div>
+            
+            <!-- Cache Statistics -->
+            <div class="metric-card">
+                <h3>💾 Cache Statistics</h3>
+                <div class="metric-row">
+                    <span>Cached Albums</span>
+                    <span id="cachedAlbums" class="metric-value">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>Average Weight</span>
+                    <span id="avgWeight" class="metric-value">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>Weight Range</span>
+                    <span id="weightRange" class="metric-label">-</span>
+                </div>
+            </div>
+            
+            <!-- Algorithm Health -->
+            <div class="metric-card">
+                <h3>⚡ Algorithm Health</h3>
+                <div class="metric-row">
+                    <span id="algorithmStatus">Algorithm Status</span>
+                    <span><span id="statusIndicator" class="status-indicator status-good"></span><span id="statusText">Healthy</span></span>
+                </div>
+                <div class="metric-row">
+                    <span>Last Updated</span>
+                    <span id="lastUpdated" class="metric-label">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>History Size</span>
+                    <span id="historySize" class="metric-value">-</span>
+                </div>
+            </div>
+            
+            <!-- Configuration -->
+            <div class="metric-card">
+                <h3>⚙️ Current Configuration</h3>
+                <div class="metric-row">
+                    <span>Rating Weight</span>
+                    <span id="ratingWeight" class="metric-label">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>Play Count Weight</span>
+                    <span id="playCountWeight" class="metric-label">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>Recency Weight</span>
+                    <span id="recencyWeight" class="metric-label">-</span>
+                </div>
+                <div class="metric-row">
+                    <span>Diversity Weight</span>
+                    <span id="diversityWeight" class="metric-label">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let refreshing = false;
+
+function formatNumber(num) {
+    if (num === undefined || num === null) return '-';
+    if (typeof num === 'number') {
+        return num < 1000 ? num.toFixed(1) : num.toLocaleString();
+    }
+    return num;
+}
+
+function formatPercent(num) {
+    if (num === undefined || num === null) return '0%';
+    return (num * 100).toFixed(1) + '%';
+}
+
+function formatTime(ms) {
+    if (ms === undefined || ms === null) return '-';
+    return ms.toFixed(1) + 'ms';
+}
+
+function updateProgressBar(elementId, value, max = 1) {
+    const bar = document.getElementById(elementId);
+    if (bar) {
+        const percent = Math.min(100, Math.max(0, (value / max) * 100));
+        bar.style.width = percent + '%';
+    }
+}
+
+function loadAnalytics() {
+    if (refreshing) return;
+    
+    refreshing = true;
+    document.getElementById('refreshBtn').disabled = true;
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('analytics').style.display = 'none';
+    document.getElementById('error').style.display = 'none';
+    
+    fetch('/api/random/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // Performance metrics
+            const metrics = data.metrics || {};
+            document.getElementById('totalSelections').textContent = formatNumber(metrics.total_selections);
+            document.getElementById('avgResponseTime').textContent = formatTime(metrics.avg_response_time_ms);
+            document.getElementById('cacheHitRate').textContent = formatPercent(metrics.cache_hit_rate);
+            updateProgressBar('cacheHitBar', metrics.cache_hit_rate);
+            
+            // User satisfaction
+            const selectionStats = data.selection_stats || {};
+            document.getElementById('satisfactionScore').textContent = formatPercent(metrics.user_satisfaction_score);
+            document.getElementById('positiveFeedback').textContent = formatNumber(selectionStats.positive_feedback || 0);
+            document.getElementById('negativeFeedback').textContent = formatNumber(selectionStats.negative_feedback || 0);
+            updateProgressBar('satisfactionBar', metrics.user_satisfaction_score);
+            
+            // Genre diversity
+            const genreStats = data.genre_stats || {};
+            document.getElementById('diversityScore').textContent = formatPercent(metrics.genre_diversity_score);
+            document.getElementById('uniqueGenres').textContent = formatNumber(genreStats.unique_genres_selected || 0);
+            updateProgressBar('diversityBar', metrics.genre_diversity_score);
+            
+            // Cache statistics
+            const cacheStats = data.cache_stats || {};
+            document.getElementById('cachedAlbums').textContent = formatNumber(cacheStats.cached_albums || 0);
+            document.getElementById('avgWeight').textContent = formatNumber(cacheStats.avg_weight);
+            
+            const weightRange = `${formatNumber(cacheStats.min_weight)} - ${formatNumber(cacheStats.max_weight)}`;
+            document.getElementById('weightRange').textContent = weightRange;
+            
+            // Algorithm health
+            const lastUpdated = metrics.last_updated ? new Date(metrics.last_updated).toLocaleString() : '-';
+            document.getElementById('lastUpdated').textContent = lastUpdated;
+            document.getElementById('historySize').textContent = formatNumber(data.history_size || 0);
+            
+            // Determine health status
+            const cacheHitRate = metrics.cache_hit_rate || 0;
+            const avgResponseTime = metrics.avg_response_time_ms || 0;
+            
+            let status = 'healthy';
+            let statusClass = 'status-good';
+            let statusText = 'Healthy';
+            
+            if (cacheHitRate < 0.8 || avgResponseTime > 100) {
+                status = 'warning';
+                statusClass = 'status-warning';
+                statusText = 'Warning';
+            }
+            
+            if (cacheHitRate < 0.5 || avgResponseTime > 200) {
+                status = 'error';
+                statusClass = 'status-error';
+                statusText = 'Needs Attention';
+            }
+            
+            const indicator = document.getElementById('statusIndicator');
+            indicator.className = 'status-indicator ' + statusClass;
+            document.getElementById('statusText').textContent = statusText;
+            
+            // Configuration
+            const config = data.config || {};
+            document.getElementById('ratingWeight').textContent = formatNumber(config.rating_weight);
+            document.getElementById('playCountWeight').textContent = formatNumber(config.play_count_weight);
+            document.getElementById('recencyWeight').textContent = formatNumber(config.recency_weight);
+            document.getElementById('diversityWeight').textContent = formatNumber(config.genre_diversity_weight);
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('analytics').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error loading analytics:', error);
+            document.getElementById('error').textContent = 'Error loading analytics: ' + error.message;
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        })
+        .finally(() => {
+            refreshing = false;
+            document.getElementById('refreshBtn').disabled = false;
+        });
+}
+
+function refreshCache() {
+    if (refreshing) return;
+    
+    refreshing = true;
+    document.getElementById('refreshCacheBtn').disabled = true;
+    document.getElementById('refreshCacheBtn').textContent = 'Refreshing...';
+    
+    fetch('/api/random/refresh', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload analytics after cache refresh
+            setTimeout(loadAnalytics, 1000);
+        } else {
+            throw new Error(data.message || 'Failed to refresh cache');
+        }
+    })
+    .catch(error => {
+        console.error('Error refreshing cache:', error);
+        alert('Error refreshing cache: ' + error.message);
+    })
+    .finally(() => {
+        refreshing = false;
+        document.getElementById('refreshCacheBtn').disabled = false;
+        document.getElementById('refreshCacheBtn').textContent = '⚡ Refresh Cache';
+    });
+}
+
+// Load analytics on page load
+document.addEventListener('DOMContentLoaded', loadAnalytics);
+
+// Auto-refresh every 30 seconds
+setInterval(loadAnalytics, 30000);
+</script>
+{% endblock %}

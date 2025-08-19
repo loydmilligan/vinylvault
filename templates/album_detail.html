@@ -1,0 +1,589 @@
+{% extends "base.html" %}
+
+{% block title %}{{ album.title }} - {{ album.artist }} - VinylVault{% endblock %}
+
+{% block head %}
+<style>
+.album-detail {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.album-header {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 40px;
+    margin-bottom: 40px;
+}
+
+.album-cover-large {
+    width: 100%;
+    aspect-ratio: 1;
+    background: #333;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #444;
+}
+
+.album-cover-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.album-cover-placeholder-large {
+    width: 80px;
+    height: 80px;
+    background: #444;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #666;
+}
+
+.album-info-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+}
+
+.album-title-large {
+    font-size: 32px;
+    font-weight: bold;
+    line-height: 1.2;
+    color: #fff;
+}
+
+.album-artist-large {
+    font-size: 24px;
+    color: #ff6b35;
+    font-weight: 500;
+}
+
+.album-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.meta-item {
+    background: #1a1a1a;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.meta-label {
+    font-size: 12px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.meta-value {
+    font-size: 16px;
+    font-weight: 500;
+    color: #fff;
+}
+
+.rating-stars {
+    color: #ffd700;
+    font-size: 18px;
+}
+
+.album-sections {
+    display: grid;
+    gap: 32px;
+}
+
+.section {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ff6b35;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.genres-styles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tag {
+    background: rgba(255, 107, 53, 0.2);
+    color: #ff6b35;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.tag.style {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tracklist {
+    list-style: none;
+    padding: 0;
+}
+
+.track {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #333;
+}
+
+.track:last-child {
+    border-bottom: none;
+}
+
+.track-info {
+    flex: 1;
+}
+
+.track-title {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.track-duration {
+    color: #999;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+
+.track-position {
+    color: #666;
+    font-size: 14px;
+    margin-right: 16px;
+    min-width: 30px;
+}
+
+.back-button {
+    margin-bottom: 24px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+}
+
+.notes-content {
+    line-height: 1.6;
+    color: #ccc;
+    white-space: pre-wrap;
+}
+
+.feedback-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 12px;
+    background: rgba(255, 107, 53, 0.1);
+    border: 1px solid rgba(255, 107, 53, 0.3);
+    border-radius: 8px;
+}
+
+.btn-feedback {
+    min-width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.2s ease;
+    background: #333;
+    border: 2px solid #555;
+}
+
+.btn-feedback:hover {
+    transform: scale(1.1);
+    background: #444;
+}
+
+.btn-feedback.selected {
+    border-color: #ff6b35;
+    background: rgba(255, 107, 53, 0.2);
+}
+
+.btn-feedback:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .album-header {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        text-align: center;
+    }
+    
+    .album-cover-large {
+        max-width: 280px;
+        margin: 0 auto;
+    }
+    
+    .album-title-large {
+        font-size: 24px;
+    }
+    
+    .album-artist-large {
+        font-size: 20px;
+    }
+    
+    .album-meta-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 12px;
+    }
+    
+    .section {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .album-cover-large {
+        max-width: 240px;
+    }
+    
+    .album-title-large {
+        font-size: 20px;
+    }
+    
+    .album-artist-large {
+        font-size: 18px;
+    }
+    
+    .track {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .track-position {
+        margin-right: 0;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="album-detail">
+    <div class="back-button">
+        <a href="javascript:history.back()" class="btn btn-secondary">← Back</a>
+    </div>
+    
+    <div class="album-header">
+        <div class="album-cover-large">
+            {% if album.cover_url %}
+                <img data-src="{{ get_detail_image_url(album.cover_url) }}" 
+                     data-original-src="{{ album.cover_url }}"
+                     data-size-type="detail"
+                     src="{{ get_placeholder_url('detail') }}"
+                     alt="{{ album.title }}"
+                     class="lazy-load"
+                     loading="lazy">
+            {% else %}
+                <img src="{{ get_placeholder_url('detail') }}" 
+                     alt="{{ album.title }}"
+                     class="placeholder">
+            {% endif %}
+        </div>
+        
+        <div class="album-info-main">
+            <h1 class="album-title-large">{{ album.title }}</h1>
+            <div class="album-artist-large">{{ album.artist }}</div>
+            
+            <div class="album-meta-grid">
+                {% if album.year %}
+                <div class="meta-item">
+                    <div class="meta-label">Year</div>
+                    <div class="meta-value">{{ album.year }}</div>
+                </div>
+                {% endif %}
+                
+                {% if album.rating %}
+                <div class="meta-item">
+                    <div class="meta-label">Rating</div>
+                    <div class="meta-value rating-stars">
+                        {% for i in range(album.rating) %}★{% endfor %}
+                        {% for i in range(5 - album.rating) %}☆{% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if album.play_count %}
+                <div class="meta-item">
+                    <div class="meta-label">Plays</div>
+                    <div class="meta-value">{{ album.play_count }}</div>
+                </div>
+                {% endif %}
+                
+                {% if album.date_added %}
+                <div class="meta-item">
+                    <div class="meta-label">Added</div>
+                    <div class="meta-value">{{ album.date_added[:10] }}</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="action-buttons">
+                <a href="{{ url_for('random_album') }}" class="btn">Random Album</a>
+                <button onclick="shareAlbum()" class="btn btn-secondary">Share</button>
+                
+                <!-- Random Algorithm Feedback (shown only if came from random) -->
+                <div id="feedback-section" class="feedback-section" style="display: none;">
+                    <span style="color: #999; font-size: 14px; margin-right: 10px;">How was this selection?</span>
+                    <button onclick="sendFeedback(1)" class="btn btn-feedback btn-like" title="I like this selection">👍</button>
+                    <button onclick="sendFeedback(0)" class="btn btn-feedback btn-neutral" title="Neutral">😐</button>
+                    <button onclick="sendFeedback(-1)" class="btn btn-feedback btn-dislike" title="I don't like this selection">👎</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="album-sections">
+        {% if album.genres or album.styles %}
+        <div class="section">
+            <h2 class="section-title">
+                🏷️ Genres & Styles
+            </h2>
+            <div class="genres-styles">
+                {% for genre in album.genres %}
+                    <span class="tag">{{ genre }}</span>
+                {% endfor %}
+                {% for style in album.styles %}
+                    <span class="tag style">{{ style }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if album.tracklist %}
+        <div class="section">
+            <h2 class="section-title">
+                🎵 Tracklist
+            </h2>
+            <ol class="tracklist">
+                {% for track in album.tracklist %}
+                <li class="track">
+                    <span class="track-position">{{ track.position or loop.index }}</span>
+                    <div class="track-info">
+                        <div class="track-title">{{ track.title }}</div>
+                        {% if track.artists and track.artists != album.artist %}
+                            <div class="track-artist">{{ track.artists }}</div>
+                        {% endif %}
+                    </div>
+                    {% if track.duration %}
+                        <span class="track-duration">{{ track.duration }}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ol>
+        </div>
+        {% endif %}
+        
+        {% if album.notes %}
+        <div class="section">
+            <h2 class="section-title">
+                📝 Notes
+            </h2>
+            <div class="notes-content">{{ album.notes }}</div>
+        </div>
+        {% endif %}
+        
+        <!-- Additional album info -->
+        <div class="section">
+            <h2 class="section-title">
+                ℹ️ Details
+            </h2>
+            <div class="album-meta-grid">
+                <div class="meta-item">
+                    <div class="meta-label">Discogs ID</div>
+                    <div class="meta-value">{{ album.discogs_id }}</div>
+                </div>
+                {% if album.folder_id %}
+                <div class="meta-item">
+                    <div class="meta-label">Folder</div>
+                    <div class="meta-value">{{ album.folder_id }}</div>
+                </div>
+                {% endif %}
+                {% if album.last_played %}
+                <div class="meta-item">
+                    <div class="meta-label">Last Played</div>
+                    <div class="meta-value">{{ album.last_played[:10] }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function shareAlbum() {
+    if (navigator.share) {
+        navigator.share({
+            title: '{{ album.title }} - {{ album.artist }}',
+            text: 'Check out this album from my vinyl collection!',
+            url: window.location.href
+        }).catch(err => console.log('Error sharing:', err));
+    } else {
+        // Fallback - copy to clipboard
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            alert('Album URL copied to clipboard!');
+        }).catch(err => {
+            console.log('Could not copy URL:', err);
+        });
+    }
+}
+
+// Feedback system
+let feedbackSent = false;
+
+function sendFeedback(rating) {
+    if (feedbackSent) return;
+    
+    const albumId = {{ album.id }};
+    
+    // Disable all feedback buttons
+    const buttons = document.querySelectorAll('.btn-feedback');
+    buttons.forEach(btn => btn.disabled = true);
+    
+    fetch('/api/random/feedback', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            album_id: albumId,
+            feedback: rating
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            feedbackSent = true;
+            
+            // Highlight selected button
+            buttons.forEach(btn => btn.classList.remove('selected'));
+            const selectedButton = document.querySelector(`button[onclick="sendFeedback(${rating})"]`);
+            if (selectedButton) {
+                selectedButton.classList.add('selected');
+            }
+            
+            // Show thank you message
+            setTimeout(() => {
+                const feedbackSection = document.getElementById('feedback-section');
+                if (feedbackSection) {
+                    feedbackSection.innerHTML = '<span style="color: #999; font-size: 14px;">Thanks for your feedback! 🎵</span>';
+                }
+            }, 1000);
+        } else {
+            // Re-enable buttons on error
+            buttons.forEach(btn => btn.disabled = false);
+            console.error('Feedback error:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error sending feedback:', error);
+        buttons.forEach(btn => btn.disabled = false);
+    });
+}
+
+// Show feedback section if user came from random selection
+function checkShowFeedback() {
+    const referrer = document.referrer;
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Show feedback if came from random route or has feedback parameter
+    if (referrer.includes('/random') || urlParams.has('feedback')) {
+        const feedbackSection = document.getElementById('feedback-section');
+        if (feedbackSection) {
+            feedbackSection.style.display = 'flex';
+        }
+    }
+}
+
+// Initialize feedback on page load
+document.addEventListener('DOMContentLoaded', checkShowFeedback);
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT') return;
+    
+    switch(e.key) {
+        case 'Escape':
+        case 'Backspace':
+            e.preventDefault();
+            history.back();
+            break;
+        case 'r':
+        case 'R':
+            e.preventDefault();
+            window.location.href = '{{ url_for("random_album") }}';
+            break;
+    }
+});
+
+// Swipe navigation for mobile
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', function(e) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', function(e) {
+    if (!touchStartX || !touchStartY) return;
+    
+    let touchEndX = e.changedTouches[0].clientX;
+    let touchEndY = e.changedTouches[0].clientY;
+    
+    let deltaX = touchEndX - touchStartX;
+    let deltaY = touchEndY - touchStartY;
+    
+    // Check if horizontal swipe is dominant
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+        if (deltaX > 0) {
+            // Swipe right - go back
+            history.back();
+        }
+    }
+    
+    touchStartX = 0;
+    touchStartY = 0;
+}, { passive: true });
+</script>
+{% endblock %}

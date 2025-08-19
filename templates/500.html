@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error - VinylVault{% endblock %}
+
+{% block content %}
+<div style="text-align: center; padding: 60px 20px; max-width: 600px; margin: 0 auto;">
+    <div style="font-size: 72px; margin-bottom: 24px;">⚠️</div>
+    
+    <h1 style="font-size: 48px; color: #ff6b35; margin-bottom: 16px;">500</h1>
+    
+    <h2 style="font-size: 24px; color: #ccc; margin-bottom: 24px;">
+        Internal Server Error
+    </h2>
+    
+    <p style="color: #999; font-size: 16px; line-height: 1.6; margin-bottom: 32px;">
+        Something went wrong on our end. We're working to fix the issue. 
+        Please try again in a few moments.
+    </p>
+    
+    <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+        <a href="{{ url_for('index') }}" class="btn">
+            Go to Collection
+        </a>
+        <button onclick="window.location.reload()" class="btn btn-secondary">
+            Try Again
+        </button>
+    </div>
+    
+    <div style="margin-top: 40px; padding-top: 32px; border-top: 1px solid #333;">
+        <p style="color: #666; font-size: 14px;">
+            If this problem persists, please check the sync status or restart the application.
+        </p>
+    </div>
+</div>
+
+<style>
+.main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 200px);
+}
+
+@media (max-width: 768px) {
+    .main {
+        align-items: flex-start;
+        padding-top: 40px;
+    }
+    
+    h1 {
+        font-size: 36px !important;
+    }
+    
+    h2 {
+        font-size: 20px !important;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>VinylVault - Touch Demo</title>
+    
+    <!-- Touch-Optimized CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="#" class="logo">VinylVault</a>
+                
+                <form class="search-form" action="#" method="GET">
+                    <input 
+                        type="search" 
+                        name="q" 
+                        class="search-input" 
+                        placeholder="Search albums or artists..."
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="btn">Search</button>
+                </form>
+                
+                <nav class="nav">
+                    <a href="#" class="nav-link active">Collection</a>
+                    <a href="#" class="btn btn-vinyl" id="randomBtn">
+                        <object data="vinyl-icon.svg" type="image/svg+xml" width="24" height="24" class="vinyl-icon"></object>
+                        Random
+                    </a>
+                    <a href="#" class="nav-link">Stats</a>
+                    <a href="#" class="nav-link">Sync</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <div class="collection-header">
+                <div>
+                    <h1 class="collection-title">Your Collection</h1>
+                    <div class="collection-stats">42 albums</div>
+                </div>
+                
+                <div class="sort-controls">
+                    <select id="sortBy">
+                        <option value="date_added" selected>Recently Added</option>
+                        <option value="title">Title</option>
+                        <option value="artist">Artist</option>
+                        <option value="year">Year</option>
+                        <option value="rating">Rating</option>
+                    </select>
+                    
+                    <select id="sortOrder">
+                        <option value="desc" selected>Descending</option>
+                        <option value="asc">Ascending</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="album-grid">
+                <!-- Sample album cards -->
+                <div class="album-card" data-href="/album/1">
+                    <div class="album-cover loading">
+                        <img data-src="https://via.placeholder.com/300x300/333/fff?text=Album+1" alt="Sample Album 1" class="lazy-load">
+                    </div>
+                    <div class="album-info">
+                        <div class="album-title">Dark Side of the Moon</div>
+                        <div class="album-artist">Pink Floyd</div>
+                        <div class="album-meta">
+                            <span class="album-year">1973</span>
+                            <span class="album-rating">★ 5.0</span>
+                        </div>
+                        <div class="album-genres">
+                            <span class="genre-tag">Rock</span>
+                            <span class="genre-tag">Progressive</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="album-card" data-href="/album/2">
+                    <div class="album-cover loading">
+                        <img data-src="https://via.placeholder.com/300x300/333/fff?text=Album+2" alt="Sample Album 2" class="lazy-load">
+                    </div>
+                    <div class="album-info">
+                        <div class="album-title">Abbey Road</div>
+                        <div class="album-artist">The Beatles</div>
+                        <div class="album-meta">
+                            <span class="album-year">1969</span>
+                            <span class="album-rating">★ 4.9</span>
+                        </div>
+                        <div class="album-genres">
+                            <span class="genre-tag">Rock</span>
+                            <span class="genre-tag">Pop</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="album-card" data-href="/album/3">
+                    <div class="album-cover loading">
+                        <img data-src="https://via.placeholder.com/300x300/333/fff?text=Album+3" alt="Sample Album 3" class="lazy-load">
+                    </div>
+                    <div class="album-info">
+                        <div class="album-title">Kind of Blue</div>
+                        <div class="album-artist">Miles Davis</div>
+                        <div class="album-meta">
+                            <span class="album-year">1959</span>
+                            <span class="album-rating">★ 4.8</span>
+                        </div>
+                        <div class="album-genres">
+                            <span class="genre-tag">Jazz</span>
+                            <span class="genre-tag">Modal</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="album-card" data-href="/album/4">
+                    <div class="album-cover loading">
+                        <img data-src="https://via.placeholder.com/300x300/333/fff?text=Album+4" alt="Sample Album 4" class="lazy-load">
+                    </div>
+                    <div class="album-info">
+                        <div class="album-title">Rumours</div>
+                        <div class="album-artist">Fleetwood Mac</div>
+                        <div class="album-meta">
+                            <span class="album-year">1977</span>
+                            <span class="album-rating">★ 4.7</span>
+                        </div>
+                        <div class="album-genres">
+                            <span class="genre-tag">Rock</span>
+                            <span class="genre-tag">Pop</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="album-card" data-href="/album/5">
+                    <div class="album-cover">
+                        <div class="album-cover-placeholder">♪</div>
+                    </div>
+                    <div class="album-info">
+                        <div class="album-title">Thriller</div>
+                        <div class="album-artist">Michael Jackson</div>
+                        <div class="album-meta">
+                            <span class="album-year">1982</span>
+                            <span class="album-rating">★ 4.9</span>
+                        </div>
+                        <div class="album-genres">
+                            <span class="genre-tag">Pop</span>
+                            <span class="genre-tag">R&B</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="album-card" data-href="/album/6">
+                    <div class="album-cover loading">
+                        <img data-src="https://via.placeholder.com/300x300/333/fff?text=Album+6" alt="Sample Album 6" class="lazy-load">
+                    </div>
+                    <div class="album-info">
+                        <div class="album-title">The Wall</div>
+                        <div class="album-artist">Pink Floyd</div>
+                        <div class="album-meta">
+                            <span class="album-year">1979</span>
+                            <span class="album-rating">★ 4.6</span>
+                        </div>
+                        <div class="album-genres">
+                            <span class="genre-tag">Rock</span>
+                            <span class="genre-tag">Concept</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pagination">
+                <span class="disabled">‹ Prev</span>
+                <span class="current">1</span>
+                <a href="#">2</a>
+                <a href="#">3</a>
+                <span>...</span>
+                <a href="#">10</a>
+                <a href="#">Next ›</a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 VinylVault - Personal Vinyl Collection Manager</p>
+        </div>
+    </footer>
+
+    <!-- Touch-Optimized JavaScript -->
+    <script src="app.js"></script>
+    
+    <!-- Demo-specific enhancements -->
+    <script>
+        // Simulate lazy loading after short delay
+        setTimeout(() => {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            lazyImages.forEach(img => {
+                if (img.dataset.src) {
+                    img.src = img.dataset.src;
+                    img.removeAttribute('data-src');
+                    const container = img.closest('.album-cover');
+                    if (container) {
+                        container.classList.remove('loading');
+                    }
+                }
+            });
+        }, 1000);
+
+        // Theme toggle button for testing
+        const themeButton = document.createElement('button');
+        themeButton.className = 'btn btn-secondary';
+        themeButton.style.position = 'fixed';
+        themeButton.style.bottom = '20px';
+        themeButton.style.right = '20px';
+        themeButton.style.zIndex = '999';
+        themeButton.textContent = '🌙';
+        themeButton.title = 'Toggle Theme';
+        
+        themeButton.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            VinylVault.applyTheme(newTheme);
+            themeButton.textContent = newTheme === 'light' ? '☀️' : '🌙';
+        });
+        
+        document.body.appendChild(themeButton);
+
+        // Console logging for touch testing
+        console.log('VinylVault Touch Demo Ready!');
+        console.log('Touch device detected:', document.body.classList.contains('touch-device'));
+        console.log('Try:');
+        console.log('- Tap the Random button to see vinyl animation');
+        console.log('- Swipe on album cards (touch devices)');
+        console.log('- Try pull-to-refresh (touch devices)');
+        console.log('- Press R key for random album');
+        console.log('- Press / key to focus search');
+        console.log('- Tap theme button to toggle light/dark mode');
+    </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found - VinylVault{% endblock %}
+
+{% block content %}
+<div style="text-align: center; padding: 60px 20px; max-width: 600px; margin: 0 auto;">
+    <div style="font-size: 72px; margin-bottom: 24px;">🎵</div>
+    
+    <h1 style="font-size: 48px; color: #ff6b35; margin-bottom: 16px;">404</h1>
+    
+    <h2 style="font-size: 24px; color: #ccc; margin-bottom: 24px;">
+        Page Not Found
+    </h2>
+    
+    <p style="color: #999; font-size: 16px; line-height: 1.6; margin-bottom: 32px;">
+        The page you're looking for doesn't exist. It might have been moved, deleted, 
+        or you entered the wrong URL.
+    </p>
+    
+    <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+        <a href="{{ url_for('index') }}" class="btn">
+            Go to Collection
+        </a>
+        <a href="{{ url_for('random_album') }}" class="btn btn-secondary">
+            Random Album
+        </a>
+    </div>
+    
+    <div style="margin-top: 40px; padding-top: 32px; border-top: 1px solid #333;">
+        <p style="color: #666; font-size: 14px;">
+            Lost? Try searching for what you're looking for using the search bar above.
+        </p>
+    </div>
+</div>
+
+<style>
+.main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 200px);
+}
+
+@media (max-width: 768px) {
+    .main {
+        align-items: flex-start;
+        padding-top: 40px;
+    }
+    
+    h1 {
+        font-size: 36px !important;
+    }
+    
+    h2 {
+        font-size: 20px !important;
+    }
+}
+</style>
+{% endblock %}

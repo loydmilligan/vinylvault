@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="150" height="150" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradients for vinyl record effect -->
+    <radialGradient id="vinylGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#2a2a2a;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#1a1a1a;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#2a2a2a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0a0a0a;stop-opacity:1" />
+    </radialGradient>
+    
+    <radialGradient id="labelGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ff8c5a;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ff6b35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e55a2b;stop-opacity:1" />
+    </radialGradient>
+    
+    <radialGradient id="centerGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1a1a1a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:1" />
+    </radialGradient>
+    
+    <!-- Groove pattern filter -->
+    <filter id="grooveFilter" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.5"/>
+      <feOffset dx="0.5" dy="0.5" result="offset"/>
+      <feFlood flood-color="#333" flood-opacity="0.3"/>
+      <feComposite in="offset" in2="SourceGraphic" operator="over"/>
+    </filter>
+    
+    <!-- Highlight effect -->
+    <linearGradient id="highlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="50%" style="stop-color:#ffffff;stop-opacity:0.05" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </linearGradient>
+    
+    <!-- Animation keyframes -->
+    <animateTransform id="spinAnimation" attributeName="transform" type="rotate" 
+                      values="0 75 75;360 75 75" dur="2s" repeatCount="1"/>
+  </defs>
+  
+  <!-- Outer ring (vinyl edge) -->
+  <circle cx="75" cy="75" r="74" fill="url(#vinylGradient)" stroke="#333" stroke-width="1"/>
+  
+  <!-- Vinyl grooves (concentric circles) -->
+  <g filter="url(#grooveFilter)" opacity="0.6">
+    <circle cx="75" cy="75" r="65" fill="none" stroke="#333" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="75" cy="75" r="60" fill="none" stroke="#333" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="75" cy="75" r="55" fill="none" stroke="#333" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="75" cy="75" r="50" fill="none" stroke="#333" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="75" cy="75" r="45" fill="none" stroke="#333" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="75" cy="75" r="40" fill="none" stroke="#333" stroke-width="0.5" opacity="0.3"/>
+  </g>
+  
+  <!-- Center label -->
+  <circle cx="75" cy="75" r="30" fill="url(#labelGradient)" stroke="#e55a2b" stroke-width="1"/>
+  
+  <!-- Label text -->
+  <text x="75" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="white">
+    VINYL
+  </text>
+  <text x="75" y="75" text-anchor="middle" font-family="Arial, sans-serif" font-size="6" font-weight="normal" fill="white">
+    VAULT
+  </text>
+  <text x="75" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="5" font-weight="normal" fill="rgba(255,255,255,0.7)">
+    COLLECTION
+  </text>
+  
+  <!-- Center hole -->
+  <circle cx="75" cy="75" r="8" fill="url(#centerGradient)" stroke="#000" stroke-width="1"/>
+  
+  <!-- Highlight overlay for 3D effect -->
+  <ellipse cx="60" cy="60" rx="15" ry="25" fill="url(#highlight)" opacity="0.4" transform="rotate(-30 60 60)"/>
+  
+  <!-- Reflection lines for realism -->
+  <g opacity="0.2">
+    <path d="M 30 45 Q 75 30 120 45" stroke="rgba(255,255,255,0.3)" stroke-width="1" fill="none"/>
+    <path d="M 35 105 Q 75 120 115 105" stroke="rgba(255,255,255,0.2)" stroke-width="1" fill="none"/>
+  </g>
+  
+  <!-- Interactive hover effects -->
+  <style>
+    <![CDATA[
+    .vinyl-record {
+      cursor: pointer;
+      transition: filter 0.3s ease;
+    }
+    
+    .vinyl-record:hover {
+      filter: brightness(1.1) drop-shadow(0 4px 8px rgba(255, 107, 53, 0.3));
+    }
+    
+    .vinyl-record:active {
+      filter: brightness(0.9);
+      transform: scale(0.95);
+    }
+    
+    /* Spinning animation class */
+    .spinning {
+      animation: spin 2s linear;
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(720deg); }
+    }
+    
+    /* Touch feedback */
+    @media (hover: none) {
+      .vinyl-record:active {
+        filter: brightness(1.1);
+        transform: scale(1.05);
+      }
+    }
+    ]]>
+  </style>
+  
+  <!-- Make the entire SVG clickable -->
+  <g class="vinyl-record">
+    <circle cx="75" cy="75" r="74" fill="transparent" stroke="none"/>
+  </g>
+</svg>

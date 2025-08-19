@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>{{ album.title }} - Lyrics - VinylVault</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .lyrics-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .header-info {
+            text-align: center;
+            margin-bottom: 30px;
+            flex-shrink: 0;
+        }
+
+        .album-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff6b35;
+            margin-bottom: 8px;
+        }
+
+        .album-artist {
+            font-size: 18px;
+            color: #999;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            background: rgba(255, 107, 53, 0.2);
+            border: 1px solid #ff6b35;
+            color: #ff6b35;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 107, 53, 0.4);
+            transform: scale(1.05);
+        }
+
+        .control-btn.active {
+            background: #ff6b35;
+            color: #1a1a1a;
+        }
+
+        .time-display {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ff6b35;
+            margin: 0 20px;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .lyrics-display {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 20px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .lyric-line {
+            font-size: 24px;
+            line-height: 1.6;
+            margin: 16px 0;
+            padding: 12px;
+            border-radius: 8px;
+            transition: all 0.5s ease;
+            opacity: 0.4;
+            cursor: pointer;
+        }
+
+        .lyric-line:hover {
+            opacity: 0.7;
+        }
+
+        .lyric-line.active {
+            background: rgba(255, 107, 53, 0.2);
+            color: #ff6b35;
+            opacity: 1;
+            font-weight: 600;
+            transform: scale(1.05);
+            box-shadow: 0 4px 20px rgba(255, 107, 53, 0.3);
+        }
+
+        .lyric-line.next {
+            opacity: 0.8;
+            color: #ccc;
+        }
+
+        .no-lyrics {
+            color: #666;
+            font-style: italic;
+            text-align: center;
+            margin-top: 100px;
+        }
+
+        .fullscreen-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #444;
+            color: #fff;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .fullscreen-toggle:hover {
+            background: rgba(255, 107, 53, 0.8);
+            border-color: #ff6b35;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 107, 53, 0.8);
+            border-color: #ff6b35;
+            color: #fff;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .lyrics-container {
+                padding: 12px;
+            }
+            
+            .album-title {
+                font-size: 22px;
+            }
+            
+            .lyric-line {
+                font-size: 20px;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+            }
+            
+            .control-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            
+            .fullscreen-toggle,
+            .back-btn {
+                top: 10px;
+            }
+            
+            .fullscreen-toggle {
+                right: 10px;
+                width: 36px;
+                height: 36px;
+                font-size: 16px;
+            }
+            
+            .back-btn {
+                left: 10px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+
+        /* Fullscreen styles */
+        :-webkit-full-screen {
+            background: #1a1a1a;
+        }
+        
+        :-moz-full-screen {
+            background: #1a1a1a;
+        }
+        
+        :fullscreen {
+            background: #1a1a1a;
+        }
+    </style>
+</head>
+<body>
+    <a href="{{ url_for('album_detail', album_id=album.id) }}" class="back-btn">← Back</a>
+    <button class="fullscreen-toggle" onclick="toggleFullscreen()">⛶</button>
+    
+    <div class="lyrics-container">
+        <div class="header-info">
+            <h1 class="album-title">{{ album.title }}</h1>
+            <p class="album-artist">{{ album.artist }}</p>
+            
+            <div class="controls">
+                <button class="control-btn" id="playBtn" onclick="togglePlayback()">▶ Play</button>
+                <button class="control-btn" onclick="resetTimer()">↺ Reset</button>
+                <span class="time-display" id="timeDisplay">00:00</span>
+                <button class="control-btn" onclick="adjustSpeed(-0.1)">-Speed</button>
+                <button class="control-btn" onclick="adjustSpeed(0.1)">+Speed</button>
+            </div>
+        </div>
+        
+        <div class="lyrics-display" id="lyricsDisplay">
+            <!-- Lyrics will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        class LyricsPlayer {
+            constructor() {
+                this.lyrics = [];
+                this.currentTime = 0;
+                this.isPlaying = false;
+                this.playbackSpeed = 1.0;
+                this.timer = null;
+                this.currentLineIndex = -1;
+                
+                this.playBtn = document.getElementById('playBtn');
+                this.timeDisplay = document.getElementById('timeDisplay');
+                this.lyricsDisplay = document.getElementById('lyricsDisplay');
+                
+                this.loadLyrics();
+                this.startTimer();
+            }
+            
+            async loadLyrics() {
+                try {
+                    const response = await fetch(`/api/album/{{ album.id }}/lyrics`);
+                    const data = await response.json();
+                    
+                    if (data.lyrics) {
+                        this.parseLRC(data.lyrics);
+                        this.renderLyrics();
+                    } else {
+                        this.lyricsDisplay.innerHTML = '<div class="no-lyrics">No synchronized lyrics available</div>';
+                    }
+                } catch (error) {
+                    console.error('Failed to load lyrics:', error);
+                    this.lyricsDisplay.innerHTML = '<div class="no-lyrics">Failed to load lyrics</div>';
+                }
+            }
+            
+            parseLRC(lrcContent) {
+                const lines = lrcContent.split('\n');
+                this.lyrics = [];
+                
+                lines.forEach(line => {
+                    const match = line.match(/\[(\d{2}):(\d{2})\.(\d{2})\](.*)/);
+                    if (match) {
+                        const minutes = parseInt(match[1]);
+                        const seconds = parseInt(match[2]);
+                        const centiseconds = parseInt(match[3]);
+                        const text = match[4].trim();
+                        
+                        const timeInSeconds = minutes * 60 + seconds + centiseconds / 100;
+                        
+                        if (text) { // Only add non-empty lines
+                            this.lyrics.push({
+                                time: timeInSeconds,
+                                text: text
+                            });
+                        }
+                    }
+                });
+                
+                // Sort by time
+                this.lyrics.sort((a, b) => a.time - b.time);
+            }
+            
+            renderLyrics() {
+                this.lyricsDisplay.innerHTML = '';
+                
+                this.lyrics.forEach((lyric, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'lyric-line';
+                    div.textContent = lyric.text;
+                    div.onclick = () => this.seekTo(lyric.time);
+                    div.id = `lyric-${index}`;
+                    this.lyricsDisplay.appendChild(div);
+                });
+            }
+            
+            togglePlayback() {
+                this.isPlaying = !this.isPlaying;
+                this.playBtn.textContent = this.isPlaying ? '⏸ Pause' : '▶ Play';
+                this.playBtn.classList.toggle('active', this.isPlaying);
+            }
+            
+            resetTimer() {
+                this.currentTime = 0;
+                this.updateDisplay();
+                this.updateActiveLyric();
+            }
+            
+            seekTo(time) {
+                this.currentTime = time;
+                this.updateDisplay();
+                this.updateActiveLyric();
+            }
+            
+            adjustSpeed(delta) {
+                this.playbackSpeed = Math.max(0.1, Math.min(2.0, this.playbackSpeed + delta));
+            }
+            
+            startTimer() {
+                setInterval(() => {
+                    if (this.isPlaying) {
+                        this.currentTime += 0.1 * this.playbackSpeed;
+                        this.updateDisplay();
+                        this.updateActiveLyric();
+                    }
+                }, 100);
+            }
+            
+            updateDisplay() {
+                const minutes = Math.floor(this.currentTime / 60);
+                const seconds = Math.floor(this.currentTime % 60);
+                this.timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            updateActiveLyric() {
+                let newActiveIndex = -1;
+                
+                for (let i = 0; i < this.lyrics.length; i++) {
+                    if (this.currentTime >= this.lyrics[i].time) {
+                        newActiveIndex = i;
+                    } else {
+                        break;
+                    }
+                }
+                
+                if (newActiveIndex !== this.currentLineIndex) {
+                    // Remove previous active states
+                    document.querySelectorAll('.lyric-line.active, .lyric-line.next').forEach(el => {
+                        el.classList.remove('active', 'next');
+                    });
+                    
+                    // Set new active line
+                    if (newActiveIndex >= 0) {
+                        const activeElement = document.getElementById(`lyric-${newActiveIndex}`);
+                        if (activeElement) {
+                            activeElement.classList.add('active');
+                            
+                            // Scroll to active line
+                            activeElement.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'center'
+                            });
+                        }
+                    }
+                    
+                    // Set next line
+                    if (newActiveIndex + 1 < this.lyrics.length) {
+                        const nextElement = document.getElementById(`lyric-${newActiveIndex + 1}`);
+                        if (nextElement) {
+                            nextElement.classList.add('next');
+                        }
+                    }
+                    
+                    this.currentLineIndex = newActiveIndex;
+                }
+            }
+        }
+        
+        // Initialize lyrics player
+        const lyricsPlayer = new LyricsPlayer();
+        
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            switch(e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    lyricsPlayer.togglePlayback();
+                    break;
+                case 'KeyR':
+                    e.preventDefault();
+                    lyricsPlayer.resetTimer();
+                    break;
+                case 'KeyF':
+                    e.preventDefault();
+                    toggleFullscreen();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    lyricsPlayer.adjustSpeed(0.1);
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    lyricsPlayer.adjustSpeed(-0.1);
+                    break;
+                case 'Escape':
+                    if (!document.fullscreenElement) {
+                        window.location.href = "{{ url_for('album_detail', album_id=album.id) }}";
+                    }
+                    break;
+            }
+        });
+        
+        // Prevent screen sleep on mobile
+        let wakeLock = null;
+        
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                console.log('Wake Lock not supported:', err);
+            }
+        }
+        
+        // Request wake lock when playing
+        document.getElementById('playBtn').addEventListener('click', requestWakeLock);
+        
+        // Handle visibility change
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
+    </script>
+</body>
+</html>

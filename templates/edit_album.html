@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Edit {{ album.title }} - VinylVault</title>
+    
+    <!-- Touch-Optimized CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+    
+    <style>
+        .edit-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .edit-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+
+        .edit-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff6b35;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .edit-subtitle {
+            color: #999;
+            text-align: center;
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            color: #ff6b35;
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #ff6b35;
+            box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-display {
+            display: block;
+            padding: 12px 16px;
+            background: #2a2a2a;
+            border: 2px dashed #444;
+            border-radius: 8px;
+            text-align: center;
+            color: #999;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-input-display:hover {
+            border-color: #ff6b35;
+            color: #ff6b35;
+        }
+
+        .file-input-display.has-file {
+            border-style: solid;
+            background: rgba(255, 107, 53, 0.1);
+            color: #ff6b35;
+        }
+
+        .current-item {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .current-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 32px;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #ff6b35, #e55a2b);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+        }
+
+        .btn-cancel {
+            background: transparent;
+            color: #999;
+            border: 1px solid #444;
+            padding: 14px 32px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-cancel:hover {
+            border-color: #666;
+            color: #ccc;
+        }
+
+        .help-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        .album-info {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .album-info h3 {
+            color: #ff6b35;
+            margin: 0 0 8px 0;
+            font-size: 20px;
+        }
+
+        .album-info p {
+            color: #999;
+            margin: 4px 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .edit-container {
+                padding: 12px;
+            }
+            
+            .edit-card {
+                padding: 20px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-save,
+            .btn-cancel {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">VinylVault</a>
+                
+                <form class="search-form" action="/search" method="GET">
+                    <input 
+                        type="search" 
+                        name="q" 
+                        class="search-input" 
+                        placeholder="Search albums or artists..."
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="btn">Search</button>
+                </form>
+                
+                <nav class="nav">
+                    <a href="/" class="nav-link">Collection</a>
+                    <a href="/random" class="btn btn-vinyl" id="randomBtn">
+                        <object data="/static/vinyl-icon.svg" type="image/svg+xml" width="24" height="24" class="vinyl-icon"></object>
+                        Random
+                    </a>
+                    <a href="/stats" class="nav-link">Stats</a>
+                    <a href="/analytics" class="nav-link">Analytics</a>
+                    <a href="/sync" class="nav-link">Sync</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="messages">
+                        {% for category, message in messages %}
+                            <div class="message {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            <div class="edit-container">
+                <div class="edit-card">
+                    <h1 class="edit-title">Edit Album</h1>
+                    <p class="edit-subtitle">
+                        Upload a custom cover image or LRC lyrics file for enhanced playback experience.
+                    </p>
+                    
+                    <!-- Album Info -->
+                    <div class="album-info">
+                        <h3>{{ album.title }}</h3>
+                        <p>by {{ album.artist }}</p>
+                        {% if album.year %}
+                            <p>Released: {{ album.year }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <form method="POST" enctype="multipart/form-data">
+                        <!-- Custom Image Upload -->
+                        <div class="form-group">
+                            <label class="form-label">Custom Cover Image</label>
+                            
+                            {% if album.custom_image %}
+                                <div class="current-item">
+                                    <p style="color: #ff6b35; margin-bottom: 12px; text-align: center;">Current Custom Image:</p>
+                                    <img src="{{ album.custom_image }}" alt="Current custom cover" class="current-image">
+                                </div>
+                            {% endif %}
+                            
+                            <div class="file-input-wrapper">
+                                <input type="file" name="custom_image" accept="image/*" class="file-input" id="imageInput">
+                                <label for="imageInput" class="file-input-display" id="imageLabel">
+                                    <span>📷 Choose Image File</span><br>
+                                    <small>Drag & drop or click to select</small>
+                                </label>
+                            </div>
+                            <div class="help-text">
+                                Supported formats: PNG, JPG, JPEG, GIF, WebP. Max size: 10MB. This will replace the Discogs cover image.
+                            </div>
+                        </div>
+                        
+                        <!-- Combined LRC Files Display -->
+                        <div class="form-group">
+                            <label class="form-label">Combined LRC Files by Record Side</label>
+                            
+                            <div id="combinedLrcStatus" style="margin-bottom: 16px;">
+                                <!-- This will be populated by JavaScript -->
+                            </div>
+                            
+                            <div class="help-text">
+                                Combined LRC files are automatically generated when all songs on a record side have individual LRC files uploaded. 
+                                You can manage individual song LRC files from the album detail page.
+                            </div>
+                        </div>
+                        
+                        <!-- Song Buffer Settings -->
+                        <div class="form-group">
+                            <label class="form-label">Song Buffer Settings</label>
+                            
+                            <div style="display: grid; gap: 16px; background: #222; padding: 16px; border-radius: 8px; border: 1px solid #333;">
+                                <div>
+                                    <label style="display: block; color: #ccc; margin-bottom: 4px; font-size: 14px;">Album Buffer (seconds):</label>
+                                    <input type="number" id="albumBufferSetting" step="0.1" min="0" max="30" 
+                                           placeholder="Use collection default"
+                                           style="width: 120px; padding: 8px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #fff;">
+                                    <span style="color: #666; margin-left: 8px; font-size: 12px;">Override collection default for this album</span>
+                                </div>
+                                
+                                <div style="font-size: 12px; color: #666; padding: 8px; background: #1a1a1a; border-radius: 4px;">
+                                    <strong>Buffer Priority:</strong> Individual song → Album → Collection default<br>
+                                    This setting applies when combining LRC files from multiple songs into one continuous file.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Legacy LRC Lyrics Upload (for backward compatibility) -->
+                        <div class="form-group">
+                            <label class="form-label">Legacy Album LRC File (Deprecated)</label>
+                            
+                            {% if album.lrc_lyrics %}
+                                <div class="current-item">
+                                    <p style="color: #ff6b35; margin-bottom: 8px;">Current Legacy Lyrics File:</p>
+                                    <p style="color: #999;">{{ album.lyrics_filename or 'lyrics.lrc' }}</p>
+                                    <a href="{{ url_for('lyrics_display', album_id=album.id) }}" style="color: #ff6b35; text-decoration: none;">
+                                        🎵 View Lyrics Display →
+                                    </a>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="file-input-wrapper">
+                                <input type="file" name="lrc_file" accept=".lrc" class="file-input" id="lrcInput">
+                                <label for="lrcInput" class="file-input-display" id="lrcLabel">
+                                    <span>🎵 Choose LRC File</span><br>
+                                    <small>Drag & drop or click to select</small>
+                                </label>
+                            </div>
+                            <div class="help-text">
+                                <strong>Note:</strong> This is the legacy album-level LRC upload. We recommend using the new individual song LRC system instead.
+                                <br>LRC format with timestamps [mm:ss.xx]. Example: [00:15.50]First line of lyrics
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="action-buttons">
+                            <button type="submit" class="btn-save">💾 Save Changes</button>
+                            <a href="{{ url_for('album_detail', album_id=album.id) }}" class="btn-cancel">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 VinylVault - Personal Vinyl Collection Manager</p>
+        </div>
+    </footer>
+
+    <!-- Touch-Optimized JavaScript -->
+    <script src="/static/app.js"></script>
+    
+    <script>
+        // File input enhancements
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const label = document.getElementById('imageLabel');
+            const file = e.target.files[0];
+            
+            if (file) {
+                label.classList.add('has-file');
+                label.innerHTML = `<span>📷 ${file.name}</span><br><small>Ready to upload</small>`;
+            } else {
+                label.classList.remove('has-file');
+                label.innerHTML = '<span>📷 Choose Image File</span><br><small>Drag & drop or click to select</small>';
+            }
+        });
+        
+        document.getElementById('lrcInput').addEventListener('change', function(e) {
+            const label = document.getElementById('lrcLabel');
+            const file = e.target.files[0];
+            
+            if (file) {
+                label.classList.add('has-file');
+                label.innerHTML = `<span>🎵 ${file.name}</span><br><small>Ready to upload</small>`;
+            } else {
+                label.classList.remove('has-file');
+                label.innerHTML = '<span>🎵 Choose LRC File</span><br><small>Drag & drop or click to select</small>';
+            }
+        });
+        
+        // Drag and drop enhancement
+        ['imageInput', 'lrcInput'].forEach(inputId => {
+            const input = document.getElementById(inputId);
+            const label = input.nextElementSibling;
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                label.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                label.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                label.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                label.style.borderColor = '#ff6b35';
+                label.style.backgroundColor = 'rgba(255, 107, 53, 0.1)';
+            }
+            
+            function unhighlight() {
+                if (!input.files.length) {
+                    label.style.borderColor = '#444';
+                    label.style.backgroundColor = '#2a2a2a';
+                }
+            }
+            
+            label.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                input.files = files;
+                
+                // Trigger change event
+                const event = new Event('change', { bubbles: true });
+                input.dispatchEvent(event);
+            }
+        });
+        
+        // Load combined LRC status and buffer settings on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCombinedLrcStatus();
+            loadBufferSettings();
+        });
+        
+        function loadCombinedLrcStatus() {
+            fetch('/api/album/{{ album.id }}/songs')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.record_sides && data.record_sides.length > 0) {
+                        let statusHtml = '<div style="display: grid; gap: 12px;">';
+                        
+                        data.record_sides.forEach(side => {
+                            const isComplete = side.is_complete;
+                            const bgColor = isComplete ? 'rgba(40, 167, 69, 0.2)' : 'rgba(255, 107, 53, 0.1)';
+                            const borderColor = isComplete ? '#28a745' : '#ff6b35';
+                            
+                            statusHtml += `
+                                <div style="padding: 12px; border: 1px solid ${borderColor}; border-radius: 8px; background: ${bgColor};">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <strong>Side ${side.side_label}:</strong> 
+                                            ${side.tracks_with_lrc}/${side.total_tracks} songs with LRC files
+                                            ${isComplete ? '<span style="color: #28a745; margin-left: 8px;">✓ Complete</span>' : ''}
+                                        </div>
+                                        <div>
+                                            ${isComplete ? 
+                                                `<button onclick="viewCombinedLRC('${side.side_label}')" 
+                                                        class="btn" style="font-size: 11px; padding: 4px 8px; margin-right: 8px;">
+                                                    📄 View Combined
+                                                </button>
+                                                <button onclick="downloadCombinedLRC('${side.side_label}')" 
+                                                        class="btn" style="font-size: 11px; padding: 4px 8px;">
+                                                    💾 Download
+                                                </button>` : 
+                                                `<span style="color: #999; font-size: 12px;">Needs more LRC files</span>`
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        statusHtml += '</div>';
+                        document.getElementById('combinedLrcStatus').innerHTML = statusHtml;
+                    } else {
+                        document.getElementById('combinedLrcStatus').innerHTML = 
+                            '<div style="color: #999; font-style: italic;">No record sides configured yet. Upload individual song LRC files to get started.</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading combined LRC status:', error);
+                    document.getElementById('combinedLrcStatus').innerHTML = 
+                        '<div style="color: #dc3545;">Error loading LRC status</div>';
+                });
+        }
+        
+        function loadBufferSettings() {
+            fetch('/api/album/{{ album.id }}/songs')
+                .then(response => response.json())
+                .then(data => {
+                    const albumBufferInput = document.getElementById('albumBufferSetting');
+                    if (albumBufferInput && data.album_buffer && data.album_buffer !== data.global_default_buffer) {
+                        albumBufferInput.value = data.album_buffer;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading buffer settings:', error);
+                });
+        }
+        
+        function viewCombinedLRC(side) {
+            fetch(`/api/album/{{ album.id }}/combined-lrc/${side}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.lrc_content) {
+                        // Create a modal to display the LRC content
+                        const modal = document.createElement('div');
+                        modal.style.cssText = 'position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8);';
+                        
+                        modal.innerHTML = `
+                            <div style="background-color: #1a1a1a; margin: 5% auto; padding: 0; border-radius: 12px; width: 90%; max-width: 800px; border: 1px solid #333; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+                                <div style="background: #2a2a2a; padding: 20px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #333; flex-shrink: 0;">
+                                    <h3 style="margin: 0; color: #ff6b35; display: flex; justify-content: space-between; align-items: center;">
+                                        <span>Combined LRC - Side ${side}</span>
+                                        <span onclick="document.body.removeChild(this.closest('.modal-overlay'))" style="cursor: pointer; font-size: 24px; color: #999;">&times;</span>
+                                    </h3>
+                                </div>
+                                <div style="padding: 20px; overflow-y: auto; flex: 1;">
+                                    <pre style="color: #ccc; font-family: monospace; font-size: 12px; line-height: 1.4; white-space: pre-wrap; margin: 0;">${data.lrc_content}</pre>
+                                </div>
+                            </div>
+                        `;
+                        
+                        modal.className = 'modal-overlay';
+                        document.body.appendChild(modal);
+                        
+                        // Close modal when clicking outside
+                        modal.onclick = function(e) {
+                            if (e.target === modal) {
+                                document.body.removeChild(modal);
+                            }
+                        };
+                    } else {
+                        alert('No combined LRC content found for this side');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error viewing combined LRC:', error);
+                    alert('Error loading combined LRC content');
+                });
+        }
+        
+        function downloadCombinedLRC(side) {
+            fetch(`/api/album/{{ album.id }}/combined-lrc/${side}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.lrc_content) {
+                        const blob = new Blob([data.lrc_content], { type: 'text/plain' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `{{ album.artist|e }} - {{ album.title|e }} - Side ${side}.lrc`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    } else {
+                        alert('No combined LRC content found for this side');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error downloading combined LRC:', error);
+                    alert('Error downloading combined LRC content');
+                });
+        }
+        
+        // Update form to include buffer settings
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const albumBufferInput = document.getElementById('albumBufferSetting');
+                if (albumBufferInput) {
+                    // Add hidden input for buffer setting
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'album_buffer_seconds';
+                    hiddenInput.value = albumBufferInput.value;
+                    form.appendChild(hiddenInput);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

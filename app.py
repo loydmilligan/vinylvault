@@ -17,17 +17,19 @@ from dataclasses import asdict
 
 from flask import (
     Flask, render_template, request, jsonify, redirect, url_for, 
-    session, flash, abort, g, make_response, send_file
+    session, flash, abort, g, make_response, send_file, send_from_directory
 )
 from werkzeug.exceptions import NotFound, InternalServerError
-import discogs_client
 from cryptography.fernet import Fernet
 
 from config import Config
-from discogs_client import (
-    initialize_global_client, get_global_client, shutdown_global_client,
+from discogs_custom_client import (
+    initialize_global_client, initialize_global_client_simple, get_global_client, shutdown_global_client,
     get_user_discogs_data, DiscogsAPIError, DiscogsConnectionError
 )
+
+# Import the actual discogs_client library (now that local file is renamed)
+import discogs_client
 from image_cache import (
     initialize_image_cache, get_image_cache, shutdown_image_cache,
     get_cached_image_url, get_placeholder_url
@@ -92,29 +94,29 @@ def initialize_random_algorithm_if_needed():
 
 # Initialize global Discogs client
 def initialize_discogs_if_needed():
-    """Initialize Discogs client if needed and user is set up."""
+    """Initialize Discogs client if needed."""
     try:
         # Only initialize if we have a global client not set up yet
         client = get_global_client()
         if client is not None:
             return
             
-        if is_setup_complete():
-            db = get_db()
-            user_data = get_user_discogs_data(db)
-            if user_data:
-                username, encrypted_token = user_data
-                # Get encryption key from session
-                encryption_key = session.get('encryption_key')
-                if encryption_key:
-                    encryption_key = encryption_key.encode()
-                    success = initialize_global_client(
-                        Config.DATABASE_PATH, username, encrypted_token, encryption_key
-                    )
-                    if success:
-                        logger.info("Discogs client initialized successfully")
-                    else:
-                        logger.warning("Failed to initialize Discogs client")
+        # Use environment variables directly
+        import os
+        username = os.environ.get('DISCOGS_USERNAME')
+        token = os.environ.get('DISCOGS_TOKEN')
+        
+        if username and token:
+            # Initialize directly without encryption
+            success = initialize_global_client_simple(
+                Config.DATABASE_PATH, username, token
+            )
+            if success:
+                logger.info("Discogs client initialized successfully")
+            else:
+                logger.warning("Failed to initialize Discogs client")
+        else:
+            logger.warning("Discogs credentials not found in environment variables")
     except Exception as e:
         logger.error(f"Error initializing Discogs client: {e}")
 
@@ -133,8 +135,14 @@ register(shutdown_image_cache)
 rate_limit_storage = {}
 
 def generate_encryption_key():
-    """Generate encryption key for token storage."""
-    return Fernet.generate_key()
+    """Get encryption key from environment variable."""
+    import os
+    
+    encryption_key = os.environ.get('ENCRYPTION_KEY')
+    if not encryption_key:
+        raise ValueError("ENCRYPTION_KEY environment variable not set")
+    
+    return encryption_key.encode('utf-8')
 
 def encrypt_token(token: str, key: bytes) -> str:
     """Encrypt user token for secure storage."""
@@ -238,6 +246,17 @@ def before_request():
     if request.endpoint in ['static', 'health']:
         return
     
+    # Ensure database is initialized before any operations
+    if not Config.DATABASE_PATH.exists():
+        logger.warning("Database not found, initializing...")
+        try:
+            from init_db import init_database
+            init_database()
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            # Continue anyway, let the actual DB operations fail with proper errors
+    
     # Check if setup is required
     if not is_setup_complete() and request.endpoint != 'setup':
         return redirect(url_for('setup'))
@@ -297,36 +316,95 @@ def setup():
         token = request.form.get('token', '').strip()
         
         if not username or not token:
+            logger.warning("Setup attempted with missing username or token")
             flash('Username and token are required', 'error')
             return render_template('setup.html')
         
+        logger.info(f"Starting setup for user: {username}")
+        
+        # Test database connection first
+        try:
+            db = get_db()
+            db.execute("SELECT 1")
+            logger.info("Database connection test successful")
+        except Exception as db_error:
+            logger.error(f"Database connection failed: {db_error}")
+            flash('Database connection error. Please check system configuration.', 'error')
+            return render_template('setup.html')
+        
         # Test Discogs connection
+        logger.info("Testing Discogs API connection...")
         client = get_discogs_client(token)
         try:
             user = client.user(username)
-            collection = user.collection_folders[0].releases
+            logger.info(f"Discogs user object retrieved for: {user.username}")
+            
+            collection_folders = user.collection_folders
+            logger.info(f"Found {len(collection_folders)} collection folders")
+            
+            if not collection_folders:
+                logger.error("No collection folders found for user")
+                flash('No collection found for this user. Please check your username.', 'error')
+                return render_template('setup.html')
+            
+            collection = collection_folders[0].releases
+            logger.info("Attempting to access collection releases...")
+            
             # Test API access by getting first item
-            next(iter(collection))
-        except Exception as e:
-            logger.error(f"Discogs API test failed: {e}")
-            flash('Invalid username or token. Please check your credentials.', 'error')
+            first_release = next(iter(collection))
+            logger.info(f"Successfully accessed collection. First release: {first_release.release.title}")
+            
+        except StopIteration:
+            logger.error("Collection is empty")
+            flash('Your collection appears to be empty. Please add some records to your Discogs collection first.', 'error')
+            return render_template('setup.html')
+        except Exception as api_error:
+            logger.error(f"Discogs API test failed: {api_error}")
+            logger.error(f"Error type: {type(api_error).__name__}")
+            if "401" in str(api_error) or "Unauthorized" in str(api_error):
+                flash('Invalid token. Please check your Discogs user token.', 'error')
+            elif "404" in str(api_error) or "Not Found" in str(api_error):
+                flash('User not found. Please check your Discogs username.', 'error')
+            elif "403" in str(api_error) or "Forbidden" in str(api_error):
+                flash('Access denied. Please check your token permissions.', 'error')
+            else:
+                flash(f'Discogs API error: {str(api_error)}', 'error')
             return render_template('setup.html')
         
-        # Encrypt token for storage
-        encryption_key = generate_encryption_key()
-        encrypted_token = encrypt_token(token, encryption_key)
+        logger.info("Discogs API test successful, proceeding with setup...")
+        
+        # Test encryption
+        try:
+            encryption_key = generate_encryption_key()
+            encrypted_token = encrypt_token(token, encryption_key)
+            logger.info("Token encryption successful")
+        except Exception as encrypt_error:
+            logger.error(f"Token encryption failed: {encrypt_error}")
+            flash('Encryption error. Please try again.', 'error')
+            return render_template('setup.html')
         
         # Store user data
-        db = get_db()
-        db.execute("""
-            INSERT INTO users (discogs_username, user_token)
-            VALUES (?, ?)
-        """, (username, encrypted_token))
-        db.commit()
+        try:
+            db.execute("""
+                INSERT INTO users (discogs_username, user_token)
+                VALUES (?, ?)
+            """, (username, encrypted_token))
+            db.commit()
+            logger.info("User data stored in database successfully")
+        except Exception as db_error:
+            logger.error(f"Database insertion failed: {db_error}")
+            flash('Database error. Please try again.', 'error')
+            return render_template('setup.html')
         
         # Store encryption key in session (for this deployment model)
-        session['encryption_key'] = encryption_key.decode()
-        session['setup_complete'] = True
+        try:
+            session['encryption_key'] = encryption_key.decode()
+            session['setup_complete'] = True
+            logger.info("Session data stored successfully")
+        except Exception as session_error:
+            logger.error(f"Session storage failed: {session_error}")
+            flash('Session error. Please try again.', 'error')
+            return render_template('setup.html')
         
         # Initialize Discogs client immediately after setup
         try:
@@ -337,15 +415,20 @@ def setup():
                 logger.info("Discogs client initialized after setup")
             else:
                 logger.warning("Failed to initialize Discogs client after setup")
-        except Exception as e:
-            logger.error(f"Error initializing Discogs client after setup: {e}")
+        except Exception as init_error:
+            logger.error(f"Error initializing Discogs client after setup: {init_error}")
+            # Don't fail setup for this, as it can be retried later
         
+        logger.info("Setup completed successfully!")
         flash('Setup completed successfully!', 'success')
         return redirect(url_for('index'))
         
     except Exception as e:
-        logger.error(f"Setup error: {e}")
-        flash('Setup failed. Please try again.', 'error')
+        logger.error(f"Unexpected setup error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        flash(f'Setup failed: {str(e)}', 'error')
         return render_template('setup.html')
 
 @app.route('/')
@@ -455,6 +538,36 @@ def album_detail(album_id):
             album_dict['genres'] = []
             album_dict['styles'] = []
             album_dict['tracklist'] = []
+        
+        # Get songs with LRC status
+        cursor = db.execute("""
+            SELECT id, track_position, title, duration_seconds, record_side, 
+                   lrc_content IS NOT NULL as has_lrc, lrc_filename,
+                   song_buffer_seconds
+            FROM songs 
+            WHERE album_id = ? 
+            ORDER BY record_side, track_position
+        """, (album_id,))
+        
+        songs = [dict(row) for row in cursor.fetchall()]
+        album_dict['songs'] = songs
+        
+        # Get record side completion status
+        cursor = db.execute("""
+            SELECT side_label, total_tracks, tracks_with_lrc, is_complete
+            FROM record_sides 
+            WHERE album_id = ?
+            ORDER BY side_label
+        """, (album_id,))
+        
+        record_sides = [dict(row) for row in cursor.fetchall()]
+        album_dict['record_sides'] = record_sides
+        
+        # Get global and album-level buffer settings
+        cursor = db.execute("SELECT value FROM settings WHERE key = 'default_song_buffer_seconds'")
+        default_buffer = cursor.fetchone()
+        global_default = float(default_buffer['value']) if default_buffer else 3.0
+        album_dict['global_buffer_default'] = global_default
         
         # Update play count
         db.execute(
@@ -599,7 +712,7 @@ def analytics():
         abort(500)
 
 @app.route('/sync', methods=['GET', 'POST'])
-@rate_limit(max_requests=1, window=300)  # Very restrictive for sync
+@rate_limit(max_requests=15, window=60)  # 15 requests per minute total
 def sync():
     """Manual sync trigger with enhanced Discogs integration."""
     if request.method == 'GET':
@@ -769,6 +882,472 @@ def api_album_detail(album_id):
         
     except Exception as e:
         logger.error(f"API album detail error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/album/<int:album_id>/edit', methods=['GET', 'POST'])
+@rate_limit(max_requests=30, window=300)
+def edit_album(album_id):
+    """Edit album with image and LRC file upload."""
+    try:
+        db = get_db()
+        
+        if request.method == 'GET':
+            cursor = db.execute("SELECT * FROM albums WHERE id = ?", (album_id,))
+            album = cursor.fetchone()
+            
+            if not album:
+                flash('Album not found', 'error')
+                return redirect(url_for('index'))
+                
+            return render_template('edit_album.html', album=album)
+        
+        # Handle POST request - save changes
+        album_data = {}
+        
+        # Handle album buffer setting from form
+        album_buffer = request.form.get('album_buffer_seconds')
+        if album_buffer:
+            try:
+                album_data['song_buffer_seconds'] = float(album_buffer)
+            except ValueError:
+                pass
+        elif album_buffer == '':
+            # Empty string means remove album-specific setting
+            album_data['song_buffer_seconds'] = None
+        
+        # Handle image upload
+        if 'custom_image' in request.files:
+            file = request.files['custom_image']
+            if file and file.filename:
+                if file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                    # Create uploads directory if it doesn't exist
+                    upload_dir = Config.CACHE_DIR / 'uploads'
+                    upload_dir.mkdir(exist_ok=True)
+                    
+                    # Save file with unique name
+                    import uuid
+                    filename = f"{album_id}_{uuid.uuid4().hex[:8]}.{file.filename.rsplit('.', 1)[1].lower()}"
+                    filepath = upload_dir / filename
+                    file.save(str(filepath))
+                    
+                    album_data['custom_image'] = f"/uploads/{filename}"
+                else:
+                    flash('Invalid image format. Please use PNG, JPG, JPEG, GIF, or WebP.', 'error')
+                    return redirect(request.url)
+        
+        # Handle LRC file upload (legacy)
+        if 'lrc_file' in request.files:
+            file = request.files['lrc_file']
+            if file and file.filename:
+                if file.filename.lower().endswith('.lrc'):
+                    # Read and validate LRC content
+                    lrc_content = file.read().decode('utf-8', errors='ignore')
+                    
+                    # Basic LRC validation - should contain [mm:ss.xx] patterns
+                    import re
+                    if re.search(r'\[\d{2}:\d{2}\.\d{2}\]', lrc_content):
+                        album_data['lrc_lyrics'] = lrc_content
+                        album_data['lyrics_filename'] = file.filename
+                        flash('Legacy LRC lyrics uploaded successfully!', 'success')
+                    else:
+                        flash('Invalid LRC format. Please ensure the file contains proper timestamps [mm:ss.xx].', 'error')
+                        return redirect(request.url)
+                else:
+                    flash('Invalid file format. Please upload an LRC file.', 'error')
+                    return redirect(request.url)
+        
+        # Update database if we have changes
+        if album_data:
+            set_clause = ', '.join([f"{key} = ?" for key in album_data.keys()])
+            values = list(album_data.values()) + [album_id]
+            
+            db.execute(f"UPDATE albums SET {set_clause} WHERE id = ?", values)
+            db.commit()
+            flash('Album updated successfully!', 'success')
+        
+        return redirect(url_for('album_detail', album_id=album_id))
+        
+    except Exception as e:
+        logger.error(f"Edit album error: {e}")
+        flash('Error updating album', 'error')
+        return redirect(url_for('album_detail', album_id=album_id))
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve uploaded files."""
+    return send_from_directory(str(Config.CACHE_DIR / 'uploads'), filename)
+
+@app.route('/album/<int:album_id>/lyrics')
+def lyrics_display(album_id):
+    """Synchronized lyrics display screen."""
+    try:
+        db = get_db()
+        cursor = db.execute("SELECT * FROM albums WHERE id = ?", (album_id,))
+        album = cursor.fetchone()
+        
+        if not album:
+            flash('Album not found', 'error')
+            return redirect(url_for('index'))
+        
+        if not album['lrc_lyrics']:
+            flash('No lyrics available for this album', 'error')
+            return redirect(url_for('album_detail', album_id=album_id))
+        
+        return render_template('lyrics_display.html', album=album)
+        
+    except Exception as e:
+        logger.error(f"Lyrics display error: {e}")
+        flash('Error loading lyrics', 'error')
+        return redirect(url_for('album_detail', album_id=album_id))
+
+@app.route('/api/album/<int:album_id>/lyrics')
+@rate_limit(max_requests=60, window=60)
+def api_lyrics(album_id):
+    """JSON API for album lyrics."""
+    try:
+        db = get_db()
+        cursor = db.execute("SELECT lrc_lyrics, lyrics_filename FROM albums WHERE id = ?", (album_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            return jsonify({'error': 'Album not found'}), 404
+        
+        if not result['lrc_lyrics']:
+            return jsonify({'error': 'No lyrics available'}), 404
+        
+        return jsonify({
+            'lyrics': result['lrc_lyrics'],
+            'filename': result['lyrics_filename']
+        })
+        
+    except Exception as e:
+        logger.error(f"API lyrics error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/album/<int:album_id>/songs')
+@rate_limit(max_requests=60, window=60)
+def api_album_songs(album_id):
+    """JSON API for album songs with LRC status."""
+    try:
+        db = get_db()
+        
+        # Get album buffer setting and global default
+        cursor = db.execute("SELECT song_buffer_seconds FROM albums WHERE id = ?", (album_id,))
+        album = cursor.fetchone()
+        if not album:
+            return jsonify({'error': 'Album not found'}), 404
+        
+        # Get global default buffer
+        cursor = db.execute("SELECT value FROM settings WHERE key = 'default_song_buffer_seconds'")
+        default_buffer = cursor.fetchone()
+        global_default = float(default_buffer['value']) if default_buffer else 3.0
+        
+        # Get album-level buffer or use global default
+        album_buffer = album['song_buffer_seconds'] or global_default
+        
+        # Get all songs for this album
+        cursor = db.execute("""
+            SELECT id, track_position, title, duration_seconds, record_side, 
+                   lrc_content IS NOT NULL as has_lrc, lrc_filename,
+                   song_buffer_seconds, uploaded_at, updated_at
+            FROM songs 
+            WHERE album_id = ? 
+            ORDER BY record_side, track_position
+        """, (album_id,))
+        
+        songs = []
+        for row in cursor.fetchall():
+            song = dict(row)
+            # Apply buffer precedence: song > album > collection
+            effective_buffer = song['song_buffer_seconds'] or album_buffer
+            song['effective_buffer_seconds'] = effective_buffer
+            songs.append(song)
+        
+        # Get record side completion status
+        cursor = db.execute("""
+            SELECT side_label, total_tracks, tracks_with_lrc, is_complete
+            FROM record_sides 
+            WHERE album_id = ?
+            ORDER BY side_label
+        """, (album_id,))
+        
+        record_sides = [dict(row) for row in cursor.fetchall()]
+        
+        return jsonify({
+            'album_id': album_id,
+            'global_default_buffer': global_default,
+            'album_buffer': album_buffer,
+            'songs': songs,
+            'record_sides': record_sides
+        })
+        
+    except Exception as e:
+        logger.error(f"API album songs error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/song/<int:song_id>/lrc', methods=['GET', 'POST', 'DELETE'])
+@rate_limit(max_requests=30, window=60)
+def api_song_lrc(song_id):
+    """JSON API for individual song LRC files."""
+    try:
+        db = get_db()
+        
+        if request.method == 'GET':
+            cursor = db.execute("""
+                SELECT lrc_content, lrc_filename, song_buffer_seconds, title, record_side
+                FROM songs WHERE id = ?
+            """, (song_id,))
+            song = cursor.fetchone()
+            
+            if not song:
+                return jsonify({'error': 'Song not found'}), 404
+            
+            return jsonify(dict(song))
+        
+        elif request.method == 'POST':
+            # Handle LRC upload or update
+            data = request.get_json() or {}
+            lrc_content = data.get('lrc_content', '').strip()
+            lrc_filename = data.get('lrc_filename', '')
+            buffer_seconds = data.get('buffer_seconds')
+            
+            if not lrc_content:
+                return jsonify({'error': 'LRC content is required'}), 400
+            
+            # Basic LRC validation
+            import re
+            if not re.search(r'\[\d{2}:\d{2}\.\d{2}\]', lrc_content):
+                return jsonify({'error': 'Invalid LRC format. Must contain timestamps like [mm:ss.xx]'}), 400
+            
+            # Update song with LRC data
+            cursor = db.execute("""
+                UPDATE songs 
+                SET lrc_content = ?, lrc_filename = ?, song_buffer_seconds = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (lrc_content, lrc_filename, buffer_seconds, song_id))
+            
+            if cursor.rowcount == 0:
+                return jsonify({'error': 'Song not found'}), 404
+            
+            db.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'LRC file uploaded successfully'
+            })
+        
+        elif request.method == 'DELETE':
+            # Remove LRC content
+            cursor = db.execute("""
+                UPDATE songs 
+                SET lrc_content = NULL, lrc_filename = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (song_id,))
+            
+            if cursor.rowcount == 0:
+                return jsonify({'error': 'Song not found'}), 404
+            
+            db.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'LRC file removed successfully'
+            })
+        
+    except Exception as e:
+        logger.error(f"API song LRC error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/settings/buffer', methods=['POST'])
+@rate_limit(max_requests=10, window=60)
+def api_buffer_settings():
+    """JSON API for buffer settings."""
+    try:
+        db = get_db()
+        data = request.get_json() or {}
+        global_default = data.get('global_default')
+        album_buffer = data.get('album_buffer')
+        album_id = data.get('album_id')
+        
+        # Update global setting
+        if global_default is not None:
+            cursor = db.execute("""
+                UPDATE settings 
+                SET value = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE key = 'default_song_buffer_seconds'
+            """, (str(global_default),))
+            
+            if cursor.rowcount == 0:
+                # Insert if doesn't exist
+                db.execute("""
+                    INSERT INTO settings (key, value, description)
+                    VALUES ('default_song_buffer_seconds', ?, 'Default buffer time between songs in seconds when combining LRC files')
+                """, (str(global_default),))
+        
+        # Update album setting
+        if album_id:
+            db.execute("""
+                UPDATE albums 
+                SET song_buffer_seconds = ?
+                WHERE id = ?
+            """, (album_buffer, album_id))
+        
+        db.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Buffer settings updated successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"API buffer settings error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/album/<int:album_id>/combine-lrc', methods=['POST'])
+@rate_limit(max_requests=5, window=300)
+def api_combine_lrc(album_id):
+    """JSON API to combine LRC files for a record side."""
+    try:
+        db = get_db()
+        data = request.get_json() or {}
+        side = data.get('side', 'A')
+        
+        if side not in ['A', 'B', 'C', 'D']:
+            return jsonify({'error': 'Invalid record side'}), 400
+        
+        # Get all songs for this side with LRC content, ordered by track position
+        cursor = db.execute("""
+            SELECT id, track_position, title, duration_seconds, lrc_content, 
+                   song_buffer_seconds
+            FROM songs 
+            WHERE album_id = ? AND record_side = ? AND lrc_content IS NOT NULL
+            ORDER BY track_position
+        """, (album_id, side))
+        
+        songs = cursor.fetchall()
+        
+        if not songs:
+            return jsonify({'error': f'No songs with LRC content found for Side {side}'}), 404
+        
+        # Get buffer settings
+        cursor = db.execute("SELECT song_buffer_seconds FROM albums WHERE id = ?", (album_id,))
+        album = cursor.fetchone()
+        
+        cursor = db.execute("SELECT value FROM settings WHERE key = 'default_song_buffer_seconds'")
+        default_buffer = cursor.fetchone()
+        global_default = float(default_buffer['value']) if default_buffer else 3.0
+        album_buffer = album['song_buffer_seconds'] or global_default
+        
+        # Combine LRC files
+        combined_lrc_lines = []
+        cumulative_offset = 0.0
+        
+        # Add metadata
+        cursor = db.execute("SELECT title, artist FROM albums WHERE id = ?", (album_id,))
+        album_info = cursor.fetchone()
+        
+        combined_lrc_lines.append(f"[ar:{album_info['artist']}]")
+        combined_lrc_lines.append(f"[al:{album_info['title']} (Side {side})]")
+        combined_lrc_lines.append(f"[ti:Side {side} Combined]")
+        combined_lrc_lines.append("")
+        
+        import re
+        
+        for i, song in enumerate(songs):
+            # Add track marker
+            combined_lrc_lines.append(f"[-- Track {song['track_position']}: {song['title']} --]")
+            
+            # Parse and adjust timestamps
+            lines = song['lrc_content'].strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                match = re.match(r'(\[\d{2}:\d{2}\.\d{2}\])(.*)', line)
+                if match:
+                    timestamp_str, lyric_text = match.groups()
+                    # Parse timestamp
+                    time_match = re.match(r'\[(\d{2}):(\d{2})\.(\d{2})\]', timestamp_str)
+                    if time_match:
+                        minutes, seconds, hundredths = map(int, time_match.groups())
+                        original_seconds = minutes * 60 + seconds + hundredths / 100.0
+                        new_seconds = original_seconds + cumulative_offset
+                        
+                        # Format new timestamp
+                        new_minutes = int(new_seconds / 60)
+                        new_secs = int(new_seconds % 60)
+                        new_hundredths = int((new_seconds - int(new_seconds)) * 100)
+                        new_timestamp = f"[{new_minutes:02d}:{new_secs:02d}.{new_hundredths:02d}]"
+                        
+                        combined_lrc_lines.append(f"{new_timestamp}{lyric_text}")
+                elif not re.match(r'\[(ar|al|ti|au|length|by|offset):.*\]', line):
+                    # Keep non-metadata lines
+                    combined_lrc_lines.append(line)
+            
+            # Add buffer time for next track (except for last track)
+            if i < len(songs) - 1:
+                # Use song-specific buffer or fall back to album/global default
+                buffer_seconds = song['song_buffer_seconds'] or album_buffer
+                cumulative_offset += (song['duration_seconds'] or 180) + buffer_seconds  # Default 3min if no duration
+            else:
+                # For last track, just add the duration without buffer
+                cumulative_offset += (song['duration_seconds'] or 180)
+        
+        # Store combined LRC
+        combined_lrc = '\n'.join(combined_lrc_lines)
+        column_name = f'combined_lrc_{side.lower()}_side'
+        timestamp_column = f'combined_lrc_timestamp_{side.lower()}'
+        
+        db.execute(f"""
+            UPDATE albums 
+            SET {column_name} = ?, {timestamp_column} = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (combined_lrc, album_id))
+        
+        db.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully combined {len(songs)} LRC files for Side {side}',
+            'track_count': len(songs),
+            'total_duration_minutes': round(cumulative_offset / 60, 1)
+        })
+        
+    except Exception as e:
+        logger.error(f"API combine LRC error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/album/<int:album_id>/combined-lrc/<side>')
+@rate_limit(max_requests=30, window=60)
+def api_get_combined_lrc(album_id, side):
+    """JSON API to get combined LRC content for a record side."""
+    try:
+        if side not in ['A', 'B', 'C', 'D']:
+            return jsonify({'error': 'Invalid record side'}), 400
+        
+        db = get_db()
+        column_name = f'combined_lrc_{side.lower()}_side'
+        timestamp_column = f'combined_lrc_timestamp_{side.lower()}'
+        
+        cursor = db.execute(f"""
+            SELECT {column_name} as lrc_content, {timestamp_column} as timestamp
+            FROM albums WHERE id = ?
+        """, (album_id,))
+        
+        result = cursor.fetchone()
+        
+        if not result:
+            return jsonify({'error': 'Album not found'}), 404
+        
+        if not result['lrc_content']:
+            return jsonify({'error': f'No combined LRC content found for Side {side}'}), 404
+        
+        return jsonify({
+            'lrc_content': result['lrc_content'],
+            'side': side,
+            'timestamp': result['timestamp']
+        })
+        
+    except Exception as e:
+        logger.error(f"API get combined LRC error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/sync/status')
@@ -1029,6 +1608,58 @@ def api_ab_test_results(test_name):
         logger.error(f"API A/B test results error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/image-proxy/<path:url>')
+def image_proxy(url):
+    """Proxy for Discogs images to handle authentication and CORS."""
+    import requests
+    from flask import Response
+    
+    try:
+        # Decode the URL if it was encoded
+        import urllib.parse
+        decoded_url = urllib.parse.unquote(url)
+        
+        # Ensure it's a Discogs image URL for security
+        if not decoded_url.startswith(('https://i.discogs.com/', 'https://img.discogs.com/')):
+            logger.warning(f"Blocked non-Discogs image URL: {decoded_url}")
+            return get_placeholder_url('thumbnails'), 302
+        
+        # Get the global client to use its authentication
+        client = get_global_client()
+        
+        # Fetch the image with authentication headers
+        headers = {
+            'User-Agent': Config.DISCOGS_USER_AGENT,
+        }
+        
+        # Add authorization if we have a token
+        if client and hasattr(client, '_client') and client._client:
+            # The discogs_client library handles auth internally, but we can add headers
+            import os
+            token = os.environ.get('DISCOGS_TOKEN')
+            if token:
+                headers['Authorization'] = f'Discogs token={token}'
+        
+        response = requests.get(decoded_url, headers=headers, timeout=10, stream=True)
+        
+        if response.status_code == 200:
+            # Stream the image back to the client
+            return Response(
+                response.iter_content(chunk_size=1024),
+                content_type=response.headers.get('Content-Type', 'image/jpeg'),
+                headers={
+                    'Cache-Control': 'public, max-age=86400',  # Cache for 1 day
+                    'Access-Control-Allow-Origin': '*'
+                }
+            )
+        else:
+            logger.warning(f"Failed to fetch image: {response.status_code} for {decoded_url}")
+            return get_placeholder_url('thumbnails'), 302
+            
+    except Exception as e:
+        logger.error(f"Image proxy error: {e}")
+        return get_placeholder_url('thumbnails'), 302
+
 @app.route('/api/ab-tests/create', methods=['POST'])
 @rate_limit(max_requests=5, window=300)
 def api_create_ab_test():
@@ -1229,11 +1860,36 @@ def api_cache_preload():
 @app.context_processor
 def inject_image_helpers():
     """Inject image helper functions into templates."""
+    import urllib.parse
+    
+    def get_best_image_url(album_or_url, size_type='thumbnails'):
+        """Get the best available image URL (custom first, then Discogs)."""
+        if isinstance(album_or_url, dict):
+            # If we have an album dict, check for custom image first
+            if album_or_url.get('custom_image'):
+                return album_or_url['custom_image']
+            # Fall back to cover_url
+            url = album_or_url.get('cover_url')
+        else:
+            # Direct URL passed
+            url = album_or_url
+            
+        if not url:
+            return get_placeholder_url(size_type)
+            
+        # If it's a Discogs URL, proxy it
+        if 'discogs' in url.lower():
+            encoded_url = urllib.parse.quote(url, safe='')
+            return f'/image-proxy/{encoded_url}'
+        
+        return url
+    
     return {
         'get_cached_image_url': get_cached_image_url,
         'get_placeholder_url': get_placeholder_url,
-        'get_thumbnail_url': lambda url: get_cached_image_url(url, 'thumbnails') if url else get_placeholder_url('thumbnails'),
-        'get_detail_image_url': lambda url: get_cached_image_url(url, 'detail') if url else get_placeholder_url('detail')
+        'get_thumbnail_url': lambda album_or_url: get_best_image_url(album_or_url, 'thumbnails'),
+        'get_detail_image_url': lambda album_or_url: get_best_image_url(album_or_url, 'detail'),
+        'get_best_image_url': get_best_image_url
     }
 
 if __name__ == '__main__':

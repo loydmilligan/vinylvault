@@ -304,9 +304,9 @@
     
     <div class="album-header">
         <div class="album-cover-large">
-            {% if album.cover_url %}
-                <img data-src="{{ get_detail_image_url(album.cover_url) }}" 
-                     data-original-src="{{ album.cover_url }}"
+            {% if album.cover_url or album.custom_image %}
+                <img data-src="{{ get_best_image_url(album, 'detail') }}" 
+                     data-original-src="{{ album.cover_url or album.custom_image }}"
                      data-size-type="detail"
                      src="{{ get_placeholder_url('detail') }}"
                      alt="{{ album.title }}"
@@ -357,6 +357,10 @@
             </div>
             
             <div class="action-buttons">
+                <a href="{{ url_for('edit_album', album_id=album.id) }}" class="btn">✏️ Edit Album</a>
+                {% if album.lrc_lyrics %}
+                    <a href="{{ url_for('lyrics_display', album_id=album.id) }}" class="btn btn-secondary">🎵 Show Lyrics</a>
+                {% endif %}
                 <a href="{{ url_for('random_album') }}" class="btn">Random Album</a>
                 <button onclick="shareAlbum()" class="btn btn-secondary">Share</button>
                 
@@ -388,7 +392,81 @@
         </div>
         {% endif %}
         
-        {% if album.tracklist %}
+        {% if album.songs %}
+        <div class="section">
+            <h2 class="section-title">
+                🎵 Songs & Lyrics
+                <button onclick="showBufferSettings()" class="btn btn-small" style="margin-left: auto; font-size: 12px;">
+                    ⚙️ Buffer Settings
+                </button>
+            </h2>
+            
+            <!-- Record Side Status -->
+            {% if album.record_sides %}
+            <div class="record-sides-status" style="margin-bottom: 20px;">
+                {% for side in album.record_sides %}
+                <div class="side-status" style="display: inline-block; margin-right: 16px; padding: 8px 12px; border: 1px solid #333; border-radius: 8px; {% if side.is_complete %}background: rgba(40, 167, 69, 0.2); border-color: #28a745;{% else %}background: rgba(255, 107, 53, 0.1); border-color: #ff6b35;{% endif %}">
+                    <strong>Side {{ side.side_label }}</strong>: 
+                    {{ side.tracks_with_lrc }}/{{ side.total_tracks }} with lyrics
+                    {% if side.is_complete %}
+                        <span style="color: #28a745;">✓ Complete</span>
+                        <button onclick="combineLRC('{{ side.side_label }}')" class="btn btn-small" style="margin-left: 8px; font-size: 11px; padding: 4px 8px;">
+                            🔗 Combine LRC
+                        </button>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Songs by Record Side -->
+            {% set sides_with_songs = album.songs|groupby('record_side') %}
+            {% for side_label, songs in sides_with_songs %}
+            <div class="record-side-section" style="margin-bottom: 32px;">
+                <h3 style="color: #ff6b35; font-size: 18px; margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 8px;">
+                    💿 Side {{ side_label }}
+                </h3>
+                
+                <div class="songs-list">
+                    {% for song in songs %}
+                    <div class="song-item" style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #333;">
+                        <span class="track-position" style="color: #666; font-size: 14px; margin-right: 16px; min-width: 30px;">
+                            {{ song.track_position }}
+                        </span>
+                        
+                        <div class="song-info" style="flex: 1;">
+                            <div class="song-title" style="font-weight: 500; margin-bottom: 4px;">
+                                {{ song.title }}
+                            </div>
+                            {% if song.duration_seconds %}
+                            <div class="song-duration" style="color: #999; font-size: 14px;">
+                                {{ (song.duration_seconds // 60)|int }}:{{ '%02d'|format((song.duration_seconds % 60)|int) }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="song-actions" style="display: flex; align-items: center; gap: 8px;">
+                            {% if song.has_lrc %}
+                                <span class="lrc-status" style="color: #28a745; font-size: 12px;">✓ LRC</span>
+                            {% else %}
+                                <span class="lrc-status" style="color: #999; font-size: 12px;">No LRC</span>
+                            {% endif %}
+                            
+                            <button onclick="openSongLRCModal({{ song.id }}, '{{ song.title|e }}', '{{ side_label }}')" 
+                                    class="btn btn-small" 
+                                    style="font-size: 11px; padding: 6px 12px;">
+                                {% if song.has_lrc %}📝 Edit{% else %}📄 Add{% endif %} LRC
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% elif album.tracklist %}
+        <!-- Fallback to old tracklist if no songs in database yet -->
         <div class="section">
             <h2 class="section-title">
                 🎵 Tracklist
@@ -450,7 +528,104 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Modal for LRC Upload -->
+<div id="lrcModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8);">
+    <div class="modal-content" style="background-color: #1a1a1a; margin: 5% auto; padding: 0; border-radius: 12px; width: 90%; max-width: 600px; border: 1px solid #333;">
+        <div class="modal-header" style="background: #2a2a2a; padding: 20px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #333;">
+            <h3 style="margin: 0; color: #ff6b35; display: flex; justify-content: space-between; align-items: center;">
+                <span id="modalTitle">Add LRC File</span>
+                <span onclick="closeLRCModal()" style="cursor: pointer; font-size: 24px; color: #999;">&times;</span>
+            </h3>
+        </div>
+        
+        <div class="modal-body" style="padding: 20px;">
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; color: #ff6b35; margin-bottom: 8px; font-weight: 500;">LRC Content:</label>
+                <textarea id="lrcContent" placeholder="[00:12.00]First line of lyrics&#10;[00:15.50]Second line of lyrics&#10;[00:18.30]Third line of lyrics" 
+                         style="width: 100%; height: 200px; padding: 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; color: #fff; font-family: monospace; font-size: 14px; resize: vertical;"></textarea>
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                    Format: [mm:ss.xx]Lyrics text. Example: [01:23.45]Hello world
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; color: #ff6b35; margin-bottom: 8px; font-weight: 500;">Song Buffer (seconds):</label>
+                <input type="number" id="songBuffer" step="0.1" min="0" max="30" 
+                       style="width: 100px; padding: 8px 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; color: #fff;">
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                    Time to add between this song and the next when combining LRC files. Leave empty to use album/collection default.
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; color: #ff6b35; margin-bottom: 8px; font-weight: 500;">File Name (optional):</label>
+                <input type="text" id="lrcFilename" placeholder="song-lyrics.lrc" 
+                       style="width: 100%; padding: 8px 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; color: #fff;">
+            </div>
+            
+            <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                <button onclick="closeLRCModal()" class="btn" style="background: #333; border: 1px solid #555;">Cancel</button>
+                <button onclick="deleteSongLRC()" id="deleteBtn" class="btn" style="background: #dc3545; border: 1px solid #dc3545; display: none;">🗑️ Delete</button>
+                <button onclick="saveSongLRC()" class="btn" style="background: #28a745; border: 1px solid #28a745;">💾 Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Buffer Settings -->
+<div id="bufferModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8);">
+    <div class="modal-content" style="background-color: #1a1a1a; margin: 10% auto; padding: 0; border-radius: 12px; width: 90%; max-width: 500px; border: 1px solid #333;">
+        <div class="modal-header" style="background: #2a2a2a; padding: 20px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #333;">
+            <h3 style="margin: 0; color: #ff6b35; display: flex; justify-content: space-between; align-items: center;">
+                <span>Song Buffer Settings</span>
+                <span onclick="closeBufferModal()" style="cursor: pointer; font-size: 24px; color: #999;">&times;</span>
+            </h3>
+        </div>
+        
+        <div class="modal-body" style="padding: 20px;">
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; color: #ff6b35; margin-bottom: 8px; font-weight: 500;">Global Default:</label>
+                <input type="number" id="globalBuffer" step="0.1" min="0" max="30" value="{{ album.global_buffer_default }}"
+                       style="width: 120px; padding: 8px 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; color: #fff;">
+                <span style="color: #666; margin-left: 8px;">seconds</span>
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                    Default buffer time for all albums in your collection
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; color: #ff6b35; margin-bottom: 8px; font-weight: 500;">This Album:</label>
+                <input type="number" id="albumBuffer" step="0.1" min="0" max="30" value="{{ album.song_buffer_seconds or '' }}" placeholder="Use global default"
+                       style="width: 120px; padding: 8px 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; color: #fff;">
+                <span style="color: #666; margin-left: 8px;">seconds</span>
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                    Override global default for this album. Leave empty to use global default.
+                </div>
+            </div>
+            
+            <div style="background: #2a2a2a; padding: 16px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 8px 0; color: #ff6b35; font-size: 14px;">Priority Order:</h4>
+                <ol style="margin: 0; padding-left: 20px; color: #ccc; font-size: 12px;">
+                    <li>Individual song setting (highest priority)</li>
+                    <li>Album setting</li>
+                    <li>Global collection default (lowest priority)</li>
+                </ol>
+            </div>
+            
+            <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                <button onclick="closeBufferModal()" class="btn" style="background: #333; border: 1px solid #555;">Cancel</button>
+                <button onclick="saveBufferSettings()" class="btn" style="background: #28a745; border: 1px solid #28a745;">💾 Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+// Global variables for modal management
+let currentSongId = null;
+let currentSongTitle = '';
+let currentSide = '';
+
 function shareAlbum() {
     if (navigator.share) {
         navigator.share({
@@ -465,6 +640,188 @@ function shareAlbum() {
         }).catch(err => {
             console.log('Could not copy URL:', err);
         });
+    }
+}
+
+// LRC Modal Functions
+function openSongLRCModal(songId, songTitle, side) {
+    currentSongId = songId;
+    currentSongTitle = songTitle;
+    currentSide = side;
+    
+    // Update modal title
+    document.getElementById('modalTitle').textContent = `LRC for "${songTitle}" (Side ${side})`;
+    
+    // Load existing LRC data if available
+    fetch(`/api/song/${songId}/lrc`)
+        .then(response => response.json())
+        .then(data => {
+            if (response.ok && data.lrc_content) {
+                document.getElementById('lrcContent').value = data.lrc_content;
+                document.getElementById('lrcFilename').value = data.lrc_filename || '';
+                document.getElementById('songBuffer').value = data.song_buffer_seconds || '';
+                document.getElementById('deleteBtn').style.display = 'inline-block';
+            } else {
+                // Clear form for new LRC
+                document.getElementById('lrcContent').value = '';
+                document.getElementById('lrcFilename').value = '';
+                document.getElementById('songBuffer').value = '';
+                document.getElementById('deleteBtn').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading song data:', error);
+        });
+    
+    // Show modal
+    document.getElementById('lrcModal').style.display = 'block';
+}
+
+function closeLRCModal() {
+    document.getElementById('lrcModal').style.display = 'none';
+    currentSongId = null;
+}
+
+function saveSongLRC() {
+    const lrcContent = document.getElementById('lrcContent').value.trim();
+    const lrcFilename = document.getElementById('lrcFilename').value.trim();
+    const bufferSeconds = document.getElementById('songBuffer').value;
+    
+    if (!lrcContent) {
+        alert('Please enter LRC content');
+        return;
+    }
+    
+    fetch(`/api/song/${currentSongId}/lrc`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            lrc_content: lrcContent,
+            lrc_filename: lrcFilename,
+            buffer_seconds: bufferSeconds ? parseFloat(bufferSeconds) : null
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeLRCModal();
+            // Reload page to update UI
+            window.location.reload();
+        } else {
+            alert('Error saving LRC: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error saving LRC:', error);
+        alert('Error saving LRC file');
+    });
+}
+
+function deleteSongLRC() {
+    if (!confirm(`Remove LRC file for "${currentSongTitle}"?`)) {
+        return;
+    }
+    
+    fetch(`/api/song/${currentSongId}/lrc`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeLRCModal();
+            // Reload page to update UI
+            window.location.reload();
+        } else {
+            alert('Error removing LRC: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error removing LRC:', error);
+        alert('Error removing LRC file');
+    });
+}
+
+// Buffer Settings Modal Functions
+function showBufferSettings() {
+    document.getElementById('bufferModal').style.display = 'block';
+}
+
+function closeBufferModal() {
+    document.getElementById('bufferModal').style.display = 'none';
+}
+
+function saveBufferSettings() {
+    const globalBuffer = document.getElementById('globalBuffer').value;
+    const albumBuffer = document.getElementById('albumBuffer').value;
+    
+    // Save global setting
+    fetch('/api/settings/buffer', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            global_default: parseFloat(globalBuffer),
+            album_buffer: albumBuffer ? parseFloat(albumBuffer) : null,
+            album_id: {{ album.id }}
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeBufferModal();
+            window.location.reload();
+        } else {
+            alert('Error saving settings: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error saving buffer settings:', error);
+        alert('Error saving buffer settings');
+    });
+}
+
+// LRC Combination Function
+function combineLRC(side) {
+    if (!confirm(`Combine all LRC files from Side ${side} into one continuous file?`)) {
+        return;
+    }
+    
+    fetch(`/api/album/{{ album.id }}/combine-lrc`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            side: side
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Successfully combined Side ${side} LRC files!`);
+            window.location.reload();
+        } else {
+            alert('Error combining LRC files: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error combining LRC files:', error);
+        alert('Error combining LRC files');
+    });
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const lrcModal = document.getElementById('lrcModal');
+    const bufferModal = document.getElementById('bufferModal');
+    
+    if (event.target === lrcModal) {
+        closeLRCModal();
+    } else if (event.target === bufferModal) {
+        closeBufferModal();
     }
 }
 
@@ -540,10 +897,19 @@ document.addEventListener('DOMContentLoaded', checkShowFeedback);
 
 // Keyboard navigation
 document.addEventListener('keydown', function(e) {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     
     switch(e.key) {
         case 'Escape':
+            if (document.getElementById('lrcModal').style.display === 'block') {
+                closeLRCModal();
+            } else if (document.getElementById('bufferModal').style.display === 'block') {
+                closeBufferModal();
+            } else {
+                history.back();
+            }
+            e.preventDefault();
+            break;
         case 'Backspace':
             e.preventDefault();
             history.back();

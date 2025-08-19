@@ -39,9 +39,9 @@
     {% for album in albums %}
     <div class="album-card" data-href="{{ url_for('album_detail', album_id=album.id) }}">
         <div class="album-cover">
-            {% if album.cover_url %}
-                <img data-src="{{ get_thumbnail_url(album.cover_url) }}" 
-                     data-original-src="{{ album.cover_url }}"
+            {% if album.cover_url or album.custom_image %}
+                <img data-src="{{ get_best_image_url(album, 'thumbnails') }}" 
+                     data-original-src="{{ album.cover_url or album.custom_image }}"
                      data-size-type="thumbnails"
                      alt="{{ album.title }}" 
                      class="lazy-load"

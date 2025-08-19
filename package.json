@@ -1,0 +1,23 @@
+{
+  "name": "vinylvault-tests",
+  "version": "1.0.0",
+  "description": "Test suite for VinylVault application",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:setup": "playwright test tests/setup-form.spec.js",
+    "install:playwright": "npx playwright install"
+  },
+  "keywords": ["vinyl", "discogs", "collection", "testing", "playwright"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

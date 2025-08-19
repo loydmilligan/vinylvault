@@ -17,10 +17,10 @@ class Config:
     # Discogs API settings
     DISCOGS_USER_AGENT = 'VinylVault/1.0'
     RATE_LIMIT_DELAY = 1.1  # seconds between API calls
-    DISCOGS_MAX_REQUESTS_PER_MINUTE = 55  # Conservative limit
+    DISCOGS_MAX_REQUESTS_PER_MINUTE = 50  # Conservative limit (Discogs allows 60)
     DISCOGS_REQUEST_TIMEOUT = (10, 30)  # (connect, read) timeouts
     DISCOGS_MAX_RETRIES = 3
-    DISCOGS_RETRY_DELAY = 1.0  # Initial retry delay
+    DISCOGS_RETRY_DELAY = 2.0  # Initial retry delay
     
     # UI settings
     ITEMS_PER_PAGE = 24

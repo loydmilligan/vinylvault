@@ -135,14 +135,9 @@ register(shutdown_image_cache)
 rate_limit_storage = {}
 
 def generate_encryption_key():
-    """Get encryption key from environment variable."""
-    import os
-    
-    encryption_key = os.environ.get('ENCRYPTION_KEY')
-    if not encryption_key:
-        raise ValueError("ENCRYPTION_KEY environment variable not set")
-    
-    return encryption_key.encode('utf-8')
+    """Generate simple fixed key for local deployment (KISS principle)."""
+    # Simple fixed key for local device - no need for complex security
+    return b'VinylVault_Local_Key_32_Characters!'
 
 def encrypt_token(token: str, key: bytes) -> str:
     """Encrypt user token for secure storage."""
